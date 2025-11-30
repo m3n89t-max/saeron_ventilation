@@ -1,0 +1,39 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Dashboard from './pages/Dashboard';
+import Inventory from './pages/Inventory';
+import Transactions from './pages/Transactions';
+import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+
+function App() {
+  return (
+    <Router>
+      <div style={styles.app}>
+        <Navbar />
+        <main style={styles.main}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/transactions" element={<Transactions />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
+  );
+}
+
+const styles = {
+  app: {
+    minHeight: '100vh',
+    backgroundColor: '#f5f5f5',
+  },
+  main: {
+    minHeight: 'calc(100vh - 64px)',
+  },
+};
+
+export default App;
