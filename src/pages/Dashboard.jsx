@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FaBox, FaExclamationTriangle, FaArrowUp, FaArrowDown, FaWon } from 'react-icons/fa';
+import { FaBox, FaExclamationTriangle, FaArrowUp, FaArrowDown, FaDollarSign } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import useInventoryStore from '../store/inventoryStore';
 import StatsCard from '../components/StatsCard';
@@ -73,7 +73,7 @@ const Dashboard = () => {
           subtitle="주문 필요"
         />
         <StatsCard
-          icon={<FaWon />}
+          icon={<FaDollarSign />}
           title="총 재고 가치"
           value={formatCurrency(stats.totalValue).replace('₩', '')}
           color="#9C27B0"
