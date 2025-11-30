@@ -16,13 +16,11 @@ const Inventory = () => {
   const [stockType, setStockType] = useState('in');
 
   const [formData, setFormData] = useState({
-    code: '',
     name: '',
     category: '복합환풍기',
     quantity: 0,
     minQuantity: 0,
     price: 0,
-    location: '',
     supplier: '',
   });
 
@@ -50,7 +48,13 @@ const Inventory = () => {
     if (editingProduct) {
       updateProduct(editingProduct.id, formData);
     } else {
-      addProduct(formData);
+      // 새 제품 추가 시 자동으로 코드와 위치 생성
+      const productData = {
+        ...formData,
+        code: `PRD-${Date.now().toString().slice(-6)}`,
+        location: '미지정',
+      };
+      addProduct(productData);
     }
     setShowModal(false);
     resetForm();
@@ -83,13 +87,11 @@ const Inventory = () => {
 
   const resetForm = () => {
     setFormData({
-      code: '',
       name: '',
       category: '복합환풍기',
       quantity: 0,
       minQuantity: 0,
       price: 0,
-      location: '',
       supplier: '',
     });
     setEditingProduct(null);
@@ -107,14 +109,15 @@ const Inventory = () => {
   const handleEdit = (product) => {
     setEditingProduct(product);
     setFormData({
-      code: product.code,
       name: product.name,
       category: product.category,
       quantity: product.quantity,
       minQuantity: product.minQuantity,
       price: product.price,
-      location: product.location,
       supplier: product.supplier,
+      // 수정 시에는 기존 코드와 위치 유지
+      code: product.code,
+      location: product.location,
     });
     setShowModal(true);
   };
@@ -274,23 +277,14 @@ const Inventory = () => {
             <form onSubmit={handleSubmit}>
               <div style={styles.formGrid}>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>제품코드</label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    style={styles.input}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>제품명</label>
+                  <label style={styles.label}>제품명 *</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     style={styles.input}
                     required
+                    placeholder="제품명 입력"
                   />
                 </div>
                 <div style={styles.formGroup}>
@@ -308,7 +302,7 @@ const Inventory = () => {
                   </select>
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>수량</label>
+                  <label style={styles.label}>수량 *</label>
                   <input
                     type="number"
                     value={formData.quantity}
@@ -317,10 +311,11 @@ const Inventory = () => {
                     }
                     style={styles.input}
                     required
+                    min="0"
                   />
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>최소수량</label>
+                  <label style={styles.label}>최소수량 *</label>
                   <input
                     type="number"
                     value={formData.minQuantity}
@@ -329,10 +324,11 @@ const Inventory = () => {
                     }
                     style={styles.input}
                     required
+                    min="0"
                   />
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>단가</label>
+                  <label style={styles.label}>단가 *</label>
                   <input
                     type="number"
                     value={formData.price}
@@ -341,16 +337,8 @@ const Inventory = () => {
                     }
                     style={styles.input}
                     required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>보관위치</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    style={styles.input}
-                    required
+                    min="0"
+                    placeholder="원"
                   />
                 </div>
                 <div style={styles.formGroup}>
@@ -360,7 +348,7 @@ const Inventory = () => {
                     value={formData.supplier}
                     onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
                     style={styles.input}
-                    required
+                    placeholder="공급업체명"
                   />
                 </div>
               </div>
