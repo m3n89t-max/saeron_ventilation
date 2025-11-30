@@ -10,7 +10,7 @@ const Dashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    category: '전자제품',
+    category: '복합환풍기',
     quantity: 0,
     price: 0,
     supplier: '',
@@ -63,7 +63,7 @@ const Dashboard = () => {
     setShowAddModal(false);
     setFormData({
       name: '',
-      category: '전자제품',
+      category: '복합환풍기',
       quantity: 0,
       price: 0,
       supplier: '',
@@ -245,7 +245,7 @@ const Dashboard = () => {
                     setShowAddModal(false);
                     setFormData({
                       name: '',
-                      category: '전자제품',
+                      category: '복합환풍기',
                       quantity: 0,
                       price: 0,
                       supplier: '',

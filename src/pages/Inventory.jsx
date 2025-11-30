@@ -18,7 +18,7 @@ const Inventory = () => {
   const [formData, setFormData] = useState({
     code: '',
     name: '',
-    category: '전자제품',
+    category: '복합환풍기',
     quantity: 0,
     minQuantity: 0,
     price: 0,
@@ -32,7 +32,7 @@ const Inventory = () => {
     user: '관리자',
   });
 
-  const categories = ['전체', '전자제품', '주변기기', '저장장치', '기타'];
+  const categories = ['전체', '복합환풍기', '일반환풍기', '환기시스템', '전자제품'];
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -85,7 +85,7 @@ const Inventory = () => {
     setFormData({
       code: '',
       name: '',
-      category: '전자제품',
+      category: '복합환풍기',
       quantity: 0,
       minQuantity: 0,
       price: 0,
