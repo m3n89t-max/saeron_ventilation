@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연결 테스트</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        h1 { font-size: 48px; margin: 0 0 20px; }
+        .status { 
+            font-size: 24px; 
+            color: #4CAF50;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .links {
+            margin-top: 30px;
+        }
+        a {
+            display: inline-block;
+            margin: 10px;
+            padding: 15px 30px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        a:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        .info {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        .info p {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 서버 연결 성공!</h1>
+        <div class="status">✅ Vite 개발 서버 정상 작동 중</div>
+        <div class="info">
+            <p><strong>(주)새론 재고관리 시스템</strong></p>
+            <p>포트: 3000</p>
+            <p>상태: Ready</p>
+        </div>
+        <div class="links">
+            <a href="/">🏠 메인 애플리케이션 열기</a>
+        </div>
+    </div>
+    <script>
+        console.log('✅ 테스트 페이지 로드 성공');
+        console.log('서버가 정상적으로 응답하고 있습니다.');
+    </script>
+</body>
+</html>
