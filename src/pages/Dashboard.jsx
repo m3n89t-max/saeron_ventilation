@@ -9,13 +9,10 @@ const Dashboard = () => {
   const { products, transactions, getTotalValue, addProduct, categories } = useInventoryStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
-    code: '',
     name: '',
     category: '전자제품',
     quantity: 0,
-    minQuantity: 0,
     price: 0,
-    location: '',
     supplier: '',
   });
 
@@ -55,16 +52,20 @@ const Dashboard = () => {
 
   const handleAddProduct = (e) => {
     e.preventDefault();
-    addProduct(formData);
+    // 자동으로 제품코드, 최소수량, 보관위치 생성
+    const productData = {
+      ...formData,
+      code: `PRD-${Date.now().toString().slice(-6)}`,
+      minQuantity: 10, // 기본값
+      location: '미지정',
+    };
+    addProduct(productData);
     setShowAddModal(false);
     setFormData({
-      code: '',
       name: '',
       category: '전자제품',
       quantity: 0,
-      minQuantity: 0,
       price: 0,
-      location: '',
       supplier: '',
     });
   };
@@ -172,17 +173,6 @@ const Dashboard = () => {
             <form onSubmit={handleAddProduct}>
               <div style={styles.formGrid}>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>제품코드 *</label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    style={styles.input}
-                    required
-                    placeholder="예: PRD-001"
-                  />
-                </div>
-                <div style={styles.formGroup}>
                   <label style={styles.label}>제품명 *</label>
                   <input
                     type="text"
@@ -221,18 +211,6 @@ const Dashboard = () => {
                   />
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>최소수량</label>
-                  <input
-                    type="number"
-                    value={formData.minQuantity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 0 })
-                    }
-                    style={styles.input}
-                    min="0"
-                  />
-                </div>
-                <div style={styles.formGroup}>
                   <label style={styles.label}>단가 *</label>
                   <input
                     type="number"
@@ -244,16 +222,6 @@ const Dashboard = () => {
                     required
                     min="0"
                     placeholder="원"
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>보관위치</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    style={styles.input}
-                    placeholder="예: 창고A-101"
                   />
                 </div>
                 <div style={styles.formGroup}>
@@ -276,13 +244,10 @@ const Dashboard = () => {
                   onClick={() => {
                     setShowAddModal(false);
                     setFormData({
-                      code: '',
                       name: '',
                       category: '전자제품',
                       quantity: 0,
-                      minQuantity: 0,
                       price: 0,
-                      location: '',
                       supplier: '',
                     });
                   }}
