@@ -1,11 +1,25 @@
-import React, { useEffect } from 'react';
-import { FiShoppingCart, FiTrendingUp, FiDollarSign, FiUsers } from 'react-icons/fi';
+import React, { useEffect, useState } from 'react';
+import { FiShoppingCart, FiTrendingUp, FiDollarSign, FiUsers, FiPlus } from 'react-icons/fi';
+import { FaTrash } from 'react-icons/fa';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import useSalesStore from '../store/salesStore';
+import useInventoryStore from '../store/inventoryStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 const SalesDashboard = () => {
-  const { salesStats, orders, customers, updateSalesStats, getTopCustomers, getRecentOrders } = useSalesStore();
+  const { salesStats, orders, customers, updateSalesStats, getTopCustomers, getRecentOrders, addOrder } = useSalesStore();
+  const { products } = useInventoryStore();
+  
+  const [showSaleModal, setShowSaleModal] = useState(false);
+  const [saleFormData, setSaleFormData] = useState({
+    customerId: '',
+    customerName: '',
+    items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
+    totalAmount: 0,
+    paymentStatus: 'paid',
+    paymentMethod: 'card',
+    note: '',
+  });
 
   useEffect(() => {
     updateSalesStats();
@@ -13,6 +27,144 @@ const SalesDashboard = () => {
 
   const topCustomers = getTopCustomers(5);
   const recentOrders = getRecentOrders(5);
+
+  // 제품 추가
+  const handleAddItem = () => {
+    setSaleFormData({
+      ...saleFormData,
+      items: [
+        ...saleFormData.items,
+        { productId: '', productName: '', quantity: 1, unitPrice: 0 },
+      ],
+    });
+  };
+
+  // 제품 제거
+  const handleRemoveItem = (index) => {
+    const newItems = saleFormData.items.filter((_, i) => i !== index);
+    setSaleFormData({
+      ...saleFormData,
+      items: newItems,
+    });
+    calculateTotal(newItems);
+  };
+
+  // 제품 선택
+  const handleProductSelect = (index, productId) => {
+    const product = products.find((p) => p.id === parseInt(productId));
+    if (product) {
+      const newItems = [...saleFormData.items];
+      newItems[index] = {
+        ...newItems[index],
+        productId: product.id,
+        productName: product.name,
+        unitPrice: product.price,
+      };
+      setSaleFormData({
+        ...saleFormData,
+        items: newItems,
+      });
+      calculateTotal(newItems);
+    }
+  };
+
+  // 수량 변경
+  const handleQuantityChange = (index, quantity) => {
+    const newItems = [...saleFormData.items];
+    newItems[index].quantity = parseInt(quantity) || 1;
+    setSaleFormData({
+      ...saleFormData,
+      items: newItems,
+    });
+    calculateTotal(newItems);
+  };
+
+  // 단가 변경
+  const handlePriceChange = (index, price) => {
+    const newItems = [...saleFormData.items];
+    newItems[index].unitPrice = parseInt(price) || 0;
+    setSaleFormData({
+      ...saleFormData,
+      items: newItems,
+    });
+    calculateTotal(newItems);
+  };
+
+  // 총액 계산
+  const calculateTotal = (items) => {
+    const total = items.reduce(
+      (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+      0
+    );
+    setSaleFormData((prev) => ({
+      ...prev,
+      totalAmount: total,
+    }));
+  };
+
+  // 고객 선택
+  const handleCustomerSelect = (customerId) => {
+    const customer = customers.find((c) => c.id === parseInt(customerId));
+    if (customer) {
+      setSaleFormData({
+        ...saleFormData,
+        customerId: customer.id,
+        customerName: customer.name,
+      });
+    }
+  };
+
+  // 판매 등록
+  const handleSaleSubmit = (e) => {
+    e.preventDefault();
+    
+    // 제품이 선택되었는지 확인
+    const hasValidItems = saleFormData.items.some(item => item.productId !== '');
+    if (!hasValidItems) {
+      alert('최소 1개 이상의 제품을 선택해주세요.');
+      return;
+    }
+
+    // 고객 선택 확인
+    if (!saleFormData.customerId && !saleFormData.customerName) {
+      alert('고객을 선택하거나 고객명을 입력해주세요.');
+      return;
+    }
+
+    // 주문 데이터 생성
+    const orderData = {
+      orderNumber: `ORD-${Date.now().toString().slice(-8)}`,
+      customerId: saleFormData.customerId || null,
+      customerName: saleFormData.customerName,
+      items: saleFormData.items.filter(item => item.productId !== ''),
+      totalAmount: saleFormData.totalAmount,
+      orderDate: new Date().toISOString(),
+      status: 'delivered', // 판매 완료
+      paymentStatus: saleFormData.paymentStatus,
+      paymentMethod: saleFormData.paymentMethod,
+      deliveryAddress: '',
+      note: saleFormData.note,
+    };
+
+    addOrder(orderData);
+    alert('판매가 등록되었습니다!');
+    setShowSaleModal(false);
+    resetForm();
+    updateSalesStats();
+  };
+
+  // 폼 초기화
+  const resetForm = () => {
+    setSaleFormData({
+      customerId: '',
+      customerName: '',
+      items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
+      totalAmount: 0,
+      paymentStatus: 'paid',
+      paymentMethod: 'card',
+      note: '',
+    });
+  };
 
   // 주문 상태별 통계
   const orderStatusData = [
@@ -70,8 +222,17 @@ const SalesDashboard = () => {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>판매 대시보드</h1>
-        <p style={styles.subtitle}>실시간 판매 현황과 통계를 확인하세요</p>
+        <div>
+          <h1 style={styles.title}>판매 대시보드</h1>
+          <p style={styles.subtitle}>실시간 판매 현황과 통계를 확인하세요</p>
+        </div>
+        <button
+          onClick={() => setShowSaleModal(true)}
+          style={styles.addButton}
+        >
+          <FiPlus style={{ marginRight: '8px' }} />
+          판매 등록
+        </button>
       </div>
 
       {/* 통계 카드 */}
@@ -227,6 +388,202 @@ const SalesDashboard = () => {
           </table>
         </div>
       </div>
+
+      {/* 판매 등록 모달 */}
+      {showSaleModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowSaleModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>판매 등록</h3>
+            <form onSubmit={handleSaleSubmit}>
+              {/* 고객 정보 */}
+              <div style={styles.sectionTitle}>고객 정보</div>
+              <div style={styles.formGrid}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>고객 선택</label>
+                  <select
+                    value={saleFormData.customerId}
+                    onChange={(e) => handleCustomerSelect(e.target.value)}
+                    style={styles.input}
+                  >
+                    <option value="">고객 선택 (또는 직접 입력)</option>
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.name} ({customer.company || '개인'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>고객명 (직접 입력)</label>
+                  <input
+                    type="text"
+                    value={saleFormData.customerName}
+                    onChange={(e) =>
+                      setSaleFormData({ ...saleFormData, customerName: e.target.value })
+                    }
+                    style={styles.input}
+                    placeholder="고객명 입력"
+                    disabled={!!saleFormData.customerId}
+                  />
+                </div>
+              </div>
+
+              {/* 제품 정보 */}
+              <div style={styles.sectionTitle}>
+                판매 제품
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  style={styles.addItemButton}
+                >
+                  <FiPlus style={{ marginRight: '4px' }} />
+                  제품 추가
+                </button>
+              </div>
+
+              {saleFormData.items.map((item, index) => (
+                <div key={index} style={styles.itemRow}>
+                  <div style={styles.itemGrid}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>제품 선택 *</label>
+                      <select
+                        value={item.productId}
+                        onChange={(e) => handleProductSelect(index, e.target.value)}
+                        style={styles.input}
+                        required
+                      >
+                        <option value="">제품을 선택하세요</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} - {formatCurrency(p.price)} (재고: {p.quantity})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>수량</label>
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => handleQuantityChange(index, e.target.value)}
+                        style={styles.input}
+                        min="1"
+                        required
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>단가</label>
+                      <input
+                        type="number"
+                        value={item.unitPrice}
+                        onChange={(e) => handlePriceChange(index, e.target.value)}
+                        style={styles.input}
+                        min="0"
+                        required
+                        placeholder="원"
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>소계</label>
+                      <div style={styles.subtotal}>
+                        {formatCurrency(item.quantity * item.unitPrice)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {saleFormData.items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(index)}
+                      style={styles.removeItemButton}
+                      title="제품 제거"
+                    >
+                      <FaTrash />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {/* 총 판매금액 */}
+              <div style={styles.totalAmountBox}>
+                <div style={styles.totalAmountLabel}>총 판매금액</div>
+                <div style={styles.totalAmount}>
+                  {formatCurrency(saleFormData.totalAmount)}
+                </div>
+              </div>
+
+              {/* 결제 정보 */}
+              <div style={styles.formGrid}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>결제 상태</label>
+                  <select
+                    value={saleFormData.paymentStatus}
+                    onChange={(e) =>
+                      setSaleFormData({ ...saleFormData, paymentStatus: e.target.value })
+                    }
+                    style={styles.input}
+                    required
+                  >
+                    <option value="paid">결제완료</option>
+                    <option value="pending">미결제</option>
+                    <option value="partial">부분결제</option>
+                  </select>
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>결제 방법</label>
+                  <select
+                    value={saleFormData.paymentMethod}
+                    onChange={(e) =>
+                      setSaleFormData({ ...saleFormData, paymentMethod: e.target.value })
+                    }
+                    style={styles.input}
+                    required
+                  >
+                    <option value="card">카드</option>
+                    <option value="cash">현금</option>
+                    <option value="transfer">계좌이체</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 비고 */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>비고</label>
+                <textarea
+                  value={saleFormData.note}
+                  onChange={(e) =>
+                    setSaleFormData({ ...saleFormData, note: e.target.value })
+                  }
+                  style={{ ...styles.input, minHeight: '80px' }}
+                  placeholder="특이사항을 입력하세요"
+                />
+              </div>
+
+              {/* 버튼 */}
+              <div style={styles.modalActions}>
+                <button type="submit" style={styles.submitButton}>
+                  등록
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSaleModal(false);
+                    resetForm();
+                  }}
+                  style={styles.cancelButton}
+                >
+                  취소
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -250,7 +607,23 @@ const styles = {
     margin: '0 auto',
   },
   header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: '32px',
+  },
+  addButton: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '12px 24px',
+    backgroundColor: '#4CAF50',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
   },
   title: {
     fontSize: '32px',
@@ -406,6 +779,161 @@ const styles = {
     fontSize: '12px',
     fontWeight: '600',
     display: 'inline-block',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modal: {
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '32px',
+    maxWidth: '900px',
+    width: '90%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+  },
+  modalTitle: {
+    fontSize: '24px',
+    fontWeight: 'bold',
+    marginBottom: '24px',
+    color: '#333',
+  },
+  sectionTitle: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: '24px',
+    marginBottom: '16px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '16px',
+    marginBottom: '16px',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    marginBottom: '16px',
+  },
+  label: {
+    marginBottom: '8px',
+    fontWeight: 'bold',
+    color: '#333',
+    fontSize: '14px',
+  },
+  input: {
+    padding: '12px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
+    fontSize: '16px',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+  },
+  addItemButton: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '8px 16px',
+    backgroundColor: '#2196F3',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+  },
+  itemRow: {
+    position: 'relative',
+    marginBottom: '16px',
+    padding: '16px',
+    backgroundColor: '#f9f9f9',
+    borderRadius: '8px',
+  },
+  itemGrid: {
+    display: 'grid',
+    gridTemplateColumns: '2fr 1fr 1fr 1fr',
+    gap: '12px',
+  },
+  subtotal: {
+    padding: '12px',
+    backgroundColor: '#E3F2FD',
+    borderRadius: '8px',
+    fontWeight: 'bold',
+    fontSize: '16px',
+    color: '#2196F3',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeItemButton: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    padding: '6px 10px',
+    backgroundColor: '#F44336',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12px',
+  },
+  totalAmountBox: {
+    backgroundColor: '#E8F5E9',
+    padding: '24px',
+    borderRadius: '8px',
+    marginBottom: '24px',
+    textAlign: 'center',
+  },
+  totalAmountLabel: {
+    fontSize: '16px',
+    color: '#2E7D32',
+    marginBottom: '8px',
+    fontWeight: 'bold',
+  },
+  totalAmount: {
+    fontSize: '32px',
+    fontWeight: 'bold',
+    color: '#2E7D32',
+  },
+  modalActions: {
+    display: 'flex',
+    gap: '12px',
+    justifyContent: 'flex-end',
+    marginTop: '24px',
+  },
+  submitButton: {
+    padding: '12px 24px',
+    backgroundColor: '#4CAF50',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+  },
+  cancelButton: {
+    padding: '12px 24px',
+    backgroundColor: '#f5f5f5',
+    color: '#333',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
   },
 };
 
