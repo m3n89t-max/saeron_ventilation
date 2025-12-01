@@ -29,10 +29,10 @@ function App() {
 const styles = {
   app: {
     minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8FAFB',
   },
   main: {
-    minHeight: 'calc(100vh - 64px)',
+    minHeight: 'calc(100vh - 70px)',
   },
 };
 

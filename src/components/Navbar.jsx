@@ -31,6 +31,7 @@ const Navbar = () => {
             <Link
               key={item.path}
               to={item.path}
+              className={location.pathname === item.path ? 'nav-item-active' : 'nav-item'}
               style={{
                 ...styles.menuItem,
                 ...(location.pathname === item.path ? styles.menuItemActive : {}),
@@ -48,10 +49,11 @@ const Navbar = () => {
 
 const styles = {
   nav: {
-    backgroundColor: '#1a1a2e',
-    color: 'white',
+    backgroundColor: '#ffffff',
+    color: '#333',
     padding: '0',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+    borderBottom: '3px solid #7AB547',
   },
   container: {
     maxWidth: '1400px',
@@ -68,41 +70,43 @@ const styles = {
   brand: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    padding: '8px 0',
+    gap: '16px',
+    padding: '12px 0',
   },
   logo: {
-    height: '45px',
+    height: '50px',
     width: 'auto',
     objectFit: 'contain',
   },
   brandIcon: {
     fontSize: '28px',
-    color: '#4CAF50',
+    color: '#7AB547',
   },
   brandText: {
-    fontSize: '20px',
+    fontSize: '22px',
     fontWeight: 'bold',
     margin: 0,
-    color: 'white',
+    color: '#2C5AA0',
   },
   menu: {
     display: 'flex',
-    gap: '8px',
+    gap: '4px',
   },
   menuItem: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
     padding: '16px 20px',
-    color: 'white',
+    color: '#555',
     textDecoration: 'none',
     transition: 'all 0.3s',
-    borderRadius: '4px',
+    borderRadius: '8px',
+    fontWeight: '500',
   },
   menuItemActive: {
-    backgroundColor: '#16213e',
-    color: '#4CAF50',
+    backgroundColor: '#F0F7FF',
+    color: '#2C5AA0',
+    borderBottom: '3px solid #2C5AA0',
   },
   menuIcon: {
     fontSize: '18px',

@@ -10,6 +10,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #F8FAFB;
 }
 
 /* Scrollbar Styles */
@@ -57,5 +58,18 @@ a:hover {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #4CAF50 !important;
+  border-color: #7AB547 !important;
+  box-shadow: 0 0 0 3px rgba(122, 181, 71, 0.1) !important;
+}
+
+/* Navigation Hover Effects */
+.nav-item:hover {
+  background-color: #F0F7FF !important;
+  color: #2C5AA0 !important;
+}
+
+.nav-item-active {
+  background-color: #F0F7FF !important;
+  color: #2C5AA0 !important;
+  border-bottom: 3px solid #2C5AA0 !important;
 }
