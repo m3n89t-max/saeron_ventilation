@@ -16,10 +16,16 @@ const Navbar = () => {
   return (
     <nav style={styles.nav}>
       <div style={styles.container}>
-        <div style={styles.brand}>
-          <FaWarehouse style={styles.brandIcon} />
-          <h1 style={styles.brandText}>(주)새론 재고관리</h1>
-        </div>
+        <Link to="/" style={styles.brandLink}>
+          <div style={styles.brand}>
+            <img 
+              src="/saeron-logo.png" 
+              alt="새론 로고" 
+              style={styles.logo}
+            />
+            <h1 style={styles.brandText}>(주)새론 재고관리</h1>
+          </div>
+        </Link>
         <div style={styles.menu}>
           {navItems.map((item) => (
             <Link
@@ -55,10 +61,20 @@ const styles = {
     alignItems: 'center',
     padding: '0 20px',
   },
+  brandLink: {
+    textDecoration: 'none',
+    color: 'inherit',
+  },
   brand: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    padding: '8px 0',
+  },
+  logo: {
+    height: '45px',
+    width: 'auto',
+    objectFit: 'contain',
   },
   brandIcon: {
     fontSize: '28px',
@@ -68,6 +84,7 @@ const styles = {
     fontSize: '20px',
     fontWeight: 'bold',
     margin: 0,
+    color: 'white',
   },
   menu: {
     display: 'flex',
