@@ -19,7 +19,6 @@ const Inventory = () => {
     name: '',
     category: '복합환풍기',
     quantity: 0,
-    minQuantity: 0,
     price: 0,
     supplier: '',
   });
@@ -48,11 +47,12 @@ const Inventory = () => {
     if (editingProduct) {
       updateProduct(editingProduct.id, formData);
     } else {
-      // 새 제품 추가 시 자동으로 코드와 위치 생성
+      // 새 제품 추가 시 자동으로 코드, 위치, 최소수량 생성
       const productData = {
         ...formData,
         code: `PRD-${Date.now().toString().slice(-6)}`,
         location: '미지정',
+        minQuantity: 10, // 기본값
       };
       addProduct(productData);
     }
@@ -90,7 +90,6 @@ const Inventory = () => {
       name: '',
       category: '복합환풍기',
       quantity: 0,
-      minQuantity: 0,
       price: 0,
       supplier: '',
     });
@@ -112,12 +111,12 @@ const Inventory = () => {
       name: product.name,
       category: product.category,
       quantity: product.quantity,
-      minQuantity: product.minQuantity,
       price: product.price,
       supplier: product.supplier,
-      // 수정 시에는 기존 코드와 위치 유지
+      // 수정 시에는 기존 코드, 위치, 최소수량 유지
       code: product.code,
       location: product.location,
+      minQuantity: product.minQuantity,
     });
     setShowModal(true);
   };
@@ -308,19 +307,6 @@ const Inventory = () => {
                     value={formData.quantity}
                     onChange={(e) =>
                       setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })
-                    }
-                    style={styles.input}
-                    required
-                    min="0"
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>최소수량 *</label>
-                  <input
-                    type="number"
-                    value={formData.minQuantity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 0 })
                     }
                     style={styles.input}
                     required
