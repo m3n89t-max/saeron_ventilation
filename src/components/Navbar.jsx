@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FaBox, FaChartBar, FaHistory, FaCog, FaWarehouse, FaMoneyBillWave, FaFileInvoice, FaFileAlt } from 'react-icons/fa';
+import { FaBox, FaChartBar, FaHistory, FaCog, FaWarehouse, FaMoneyBillWave, FaFileInvoice, FaFileAlt, FaShoppingCart, FaUsers, FaClipboardList } from 'react-icons/fa';
 
 const Navbar = () => {
   const location = useLocation();
@@ -8,7 +8,9 @@ const Navbar = () => {
   const navItems = [
     { path: '/', icon: <FaWarehouse />, label: '대시보드' },
     { path: '/inventory', icon: <FaBox />, label: '재고 관리' },
-    { path: '/sales', icon: <FaMoneyBillWave />, label: '판매 관리' },
+    { path: '/sales', icon: <FaShoppingCart />, label: '판매 현황' },
+    { path: '/customers', icon: <FaUsers />, label: '고객 관리' },
+    { path: '/orders', icon: <FaClipboardList />, label: '주문 관리' },
     { path: '/quotes', icon: <FaFileAlt />, label: '견적 현황' },
     { path: '/monthly-closing', icon: <FaFileInvoice />, label: '월별 마감' },
     { path: '/transactions', icon: <FaHistory />, label: '입출고 내역' },

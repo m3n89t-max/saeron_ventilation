@@ -9,6 +9,9 @@ import MonthlyClosing from './pages/MonthlyClosing';
 import Transactions from './pages/Transactions';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import Sales from './pages/Sales';
+import Customers from './pages/Customers';
+import Orders from './pages/Orders';
 
 function App() {
   return (
@@ -25,6 +28,9 @@ function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/sales" element={<Sales />} />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/orders" element={<Orders />} />
           </Routes>
         </main>
       </div>
