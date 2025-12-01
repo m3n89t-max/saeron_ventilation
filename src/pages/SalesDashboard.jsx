@@ -7,13 +7,17 @@ import useInventoryStore from '../store/inventoryStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 const SalesDashboard = () => {
-  const { salesStats, orders, customers, updateSalesStats, getTopCustomers, getRecentOrders, addOrder } = useSalesStore();
+  const { salesStats, orders, customers, updateSalesStats, getTopCustomers, getRecentOrders, addOrder, addCustomer } = useSalesStore();
   const { products } = useInventoryStore();
   
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [saleFormData, setSaleFormData] = useState({
     customerId: '',
     customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    customerAddress: '',
+    customerCompany: '',
     items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
     totalAmount: 0,
     paymentStatus: 'paid',
@@ -131,18 +135,41 @@ const SalesDashboard = () => {
       return;
     }
 
+    let finalCustomerId = saleFormData.customerId;
+    let finalCustomerName = saleFormData.customerName;
+
+    // 고객을 직접 입력한 경우 (기존 고객이 아닌 경우)
+    if (!saleFormData.customerId && saleFormData.customerName) {
+      // 새 고객 자동 등록
+      const newCustomer = addCustomer({
+        name: saleFormData.customerName,
+        company: saleFormData.customerCompany || '',
+        contact: saleFormData.customerPhone || '',
+        email: saleFormData.customerEmail || '',
+        address: saleFormData.customerAddress || '',
+        manager: saleFormData.customerName,
+        managerPhone: saleFormData.customerPhone || '',
+        grade: '일반',
+      });
+      
+      finalCustomerId = newCustomer.id;
+      finalCustomerName = newCustomer.name;
+      
+      alert(`신규 고객 "${newCustomer.name}"이(가) 고객관리에 등록되었습니다!`);
+    }
+
     // 주문 데이터 생성
     const orderData = {
       orderNumber: `ORD-${Date.now().toString().slice(-8)}`,
-      customerId: saleFormData.customerId || null,
-      customerName: saleFormData.customerName,
+      customerId: finalCustomerId,
+      customerName: finalCustomerName,
       items: saleFormData.items.filter(item => item.productId !== ''),
       totalAmount: saleFormData.totalAmount,
       orderDate: new Date().toISOString(),
       status: 'delivered', // 판매 완료
       paymentStatus: saleFormData.paymentStatus,
       paymentMethod: saleFormData.paymentMethod,
-      deliveryAddress: '',
+      deliveryAddress: saleFormData.customerAddress || '',
       note: saleFormData.note,
     };
 
@@ -158,6 +185,10 @@ const SalesDashboard = () => {
     setSaleFormData({
       customerId: '',
       customerName: '',
+      customerPhone: '',
+      customerEmail: '',
+      customerAddress: '',
+      customerCompany: '',
       items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
       totalAmount: 0,
       paymentStatus: 'paid',
@@ -397,37 +428,98 @@ const SalesDashboard = () => {
             <form onSubmit={handleSaleSubmit}>
               {/* 고객 정보 */}
               <div style={styles.sectionTitle}>고객 정보</div>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>고객 선택</label>
-                  <select
-                    value={saleFormData.customerId}
-                    onChange={(e) => handleCustomerSelect(e.target.value)}
-                    style={styles.input}
-                  >
-                    <option value="">고객 선택 (또는 직접 입력)</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name} ({customer.company || '개인'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>고객명 (직접 입력)</label>
-                  <input
-                    type="text"
-                    value={saleFormData.customerName}
-                    onChange={(e) =>
-                      setSaleFormData({ ...saleFormData, customerName: e.target.value })
-                    }
-                    style={styles.input}
-                    placeholder="고객명 입력"
-                    disabled={!!saleFormData.customerId}
-                  />
-                </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>기존 고객 선택</label>
+                <select
+                  value={saleFormData.customerId}
+                  onChange={(e) => handleCustomerSelect(e.target.value)}
+                  style={styles.input}
+                >
+                  <option value="">신규 고객 (아래에 직접 입력)</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} ({customer.company || '개인'}) - {customer.contact}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {!saleFormData.customerId && (
+                <>
+                  <div style={styles.newCustomerNote}>
+                    💡 신규 고객 정보를 입력하면 자동으로 고객관리에 등록됩니다.
+                  </div>
+                  <div style={styles.formGrid}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>고객명 *</label>
+                      <input
+                        type="text"
+                        value={saleFormData.customerName}
+                        onChange={(e) =>
+                          setSaleFormData({ ...saleFormData, customerName: e.target.value })
+                        }
+                        style={styles.input}
+                        placeholder="고객명 입력"
+                        required
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>회사명</label>
+                      <input
+                        type="text"
+                        value={saleFormData.customerCompany}
+                        onChange={(e) =>
+                          setSaleFormData({ ...saleFormData, customerCompany: e.target.value })
+                        }
+                        style={styles.input}
+                        placeholder="회사명 입력"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={styles.formGrid}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>연락처</label>
+                      <input
+                        type="tel"
+                        value={saleFormData.customerPhone}
+                        onChange={(e) =>
+                          setSaleFormData({ ...saleFormData, customerPhone: e.target.value })
+                        }
+                        style={styles.input}
+                        placeholder="010-1234-5678"
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>이메일</label>
+                      <input
+                        type="email"
+                        value={saleFormData.customerEmail}
+                        onChange={(e) =>
+                          setSaleFormData({ ...saleFormData, customerEmail: e.target.value })
+                        }
+                        style={styles.input}
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>주소</label>
+                    <input
+                      type="text"
+                      value={saleFormData.customerAddress}
+                      onChange={(e) =>
+                        setSaleFormData({ ...saleFormData, customerAddress: e.target.value })
+                      }
+                      style={styles.input}
+                      placeholder="주소 입력"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* 제품 정보 */}
               <div style={styles.sectionTitle}>
@@ -810,6 +902,15 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  newCustomerNote: {
+    backgroundColor: '#E3F2FD',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    fontSize: '14px',
+    color: '#1976D2',
+    border: '1px solid #2196F3',
   },
   formGrid: {
     display: 'grid',
