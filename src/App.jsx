@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
+import Sales from './pages/Sales';
+import Quotes from './pages/Quotes';
+import MonthlyClosing from './pages/MonthlyClosing';
 import Transactions from './pages/Transactions';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
@@ -16,6 +19,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/inventory" element={<Inventory />} />
+            <Route path="/sales" element={<Sales />} />
+            <Route path="/quotes" element={<Quotes />} />
+            <Route path="/monthly-closing" element={<MonthlyClosing />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
