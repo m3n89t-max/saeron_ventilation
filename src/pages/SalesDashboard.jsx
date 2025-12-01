@@ -739,12 +739,6 @@ const styles = {
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
   },
-  sectionTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: '20px',
-  },
   ordersTable: {
     overflowX: 'auto',
   },
