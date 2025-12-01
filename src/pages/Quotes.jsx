@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaFileInvoice, FaStar, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaFileInvoice, FaStar, FaCheckCircle, FaTimesCircle, FaClock, FaFileExcel, FaDownload } from 'react-icons/fa';
 import useInventoryStore from '../store/inventoryStore';
 import { formatCurrency, formatNumber, formatDate } from '../utils/formatters';
 
@@ -32,6 +32,7 @@ const Quotes = () => {
     isProspect: false, // 가망고객 표시
     note: '',
     user: '관리자',
+    attachedFile: null, // 첨부파일 정보 { name, size, type, data }
   });
 
   // 통계 계산
@@ -145,6 +146,67 @@ const Quotes = () => {
     }));
   };
 
+  // 파일 첨부 처리
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // 파일 유효성 검사
+    const allowedTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.oasis.opendocument.spreadsheet'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      alert('엑셀 파일만 업로드 가능합니다. (.xls, .xlsx)');
+      e.target.value = '';
+      return;
+    }
+
+    // 파일 크기 제한 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('파일 크기는 5MB를 초과할 수 없습니다.');
+      e.target.value = '';
+      return;
+    }
+
+    // 파일을 Base64로 인코딩
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setQuoteFormData({
+        ...quoteFormData,
+        attachedFile: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          data: event.target.result, // Base64 데이터
+        },
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 파일 삭제
+  const handleFileRemove = () => {
+    setQuoteFormData({
+      ...quoteFormData,
+      attachedFile: null,
+    });
+  };
+
+  // 파일 다운로드
+  const handleFileDownload = (file) => {
+    if (!file) return;
+    
+    const link = document.createElement('a');
+    link.href = file.data;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // 견적 제출
   const handleQuoteSubmit = (e) => {
     e.preventDefault();
@@ -182,6 +244,7 @@ const Quotes = () => {
       isProspect: false,
       note: '',
       user: '관리자',
+      attachedFile: null,
     });
     setEditingQuote(null);
   };
@@ -201,6 +264,7 @@ const Quotes = () => {
       isProspect: quote.isProspect || false,
       note: quote.note || '',
       user: quote.user || '관리자',
+      attachedFile: quote.attachedFile || null,
     });
     setShowQuoteModal(true);
   };
@@ -357,6 +421,7 @@ const Quotes = () => {
               <th style={styles.th}>연락처</th>
               <th style={styles.th}>견적금액</th>
               <th style={styles.th}>유효기한</th>
+              <th style={styles.th}>첨부파일</th>
               <th style={styles.th}>상태</th>
               <th style={styles.th}>작업</th>
             </tr>
@@ -364,7 +429,7 @@ const Quotes = () => {
           <tbody>
             {filteredQuotes.length === 0 ? (
               <tr>
-                <td colSpan="9" style={styles.emptyMessage}>
+                <td colSpan="10" style={styles.emptyMessage}>
                   견적 내역이 없습니다.
                 </td>
               </tr>
@@ -388,6 +453,20 @@ const Quotes = () => {
                       <span style={styles.amount}>{formatCurrency(quote.totalAmount)}</span>
                     </td>
                     <td style={styles.td}>{quote.validUntil || '-'}</td>
+                    <td style={styles.td}>
+                      {quote.attachedFile ? (
+                        <button
+                          onClick={() => handleFileDownload(quote.attachedFile)}
+                          style={styles.downloadButton}
+                          title={quote.attachedFile.name}
+                        >
+                          <FaFileExcel style={{ marginRight: '4px', color: '#217346' }} />
+                          <FaDownload />
+                        </button>
+                      ) : (
+                        <span style={{ color: '#999' }}>-</span>
+                      )}
+                    </td>
                     <td style={styles.td}>
                       <select
                         value={quote.status}
@@ -639,6 +718,49 @@ const Quotes = () => {
                   style={{ ...styles.input, minHeight: '80px' }}
                   placeholder="특이사항을 입력하세요"
                 />
+              </div>
+
+              {/* 견적서 파일 첨부 */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  <FaFileExcel style={{ marginRight: '8px', color: '#217346' }} />
+                  견적서 파일 첨부 (엑셀)
+                </label>
+                {quoteFormData.attachedFile ? (
+                  <div style={styles.fileAttached}>
+                    <div style={styles.fileInfo}>
+                      <FaFileExcel style={{ fontSize: '24px', color: '#217346', marginRight: '12px' }} />
+                      <div>
+                        <div style={styles.fileName}>{quoteFormData.attachedFile.name}</div>
+                        <div style={styles.fileSize}>
+                          {(quoteFormData.attachedFile.size / 1024).toFixed(2)} KB
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleFileRemove}
+                      style={styles.removeFileButton}
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ) : (
+                  <div style={styles.fileUploadBox}>
+                    <input
+                      type="file"
+                      accept=".xls,.xlsx"
+                      onChange={handleFileUpload}
+                      style={styles.fileInput}
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" style={styles.fileUploadLabel}>
+                      <FaFileExcel style={{ fontSize: '32px', color: '#217346', marginBottom: '8px' }} />
+                      <div>엑셀 파일을 선택하세요</div>
+                      <div style={styles.fileUploadHint}>(.xls, .xlsx 파일, 최대 5MB)</div>
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* 버튼 */}
@@ -1015,6 +1137,76 @@ const styles = {
     fontWeight: 'bold',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+  },
+  downloadButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '6px 12px',
+    backgroundColor: '#E8F5E9',
+    border: '1px solid #217346',
+    borderRadius: '6px',
+    color: '#217346',
+    cursor: 'pointer',
+    fontSize: '14px',
+    transition: 'all 0.2s',
+  },
+  fileUploadBox: {
+    border: '2px dashed #e0e0e0',
+    borderRadius: '8px',
+    padding: '32px',
+    textAlign: 'center',
+    backgroundColor: '#fafafa',
+    transition: 'all 0.2s',
+    cursor: 'pointer',
+  },
+  fileInput: {
+    display: 'none',
+  },
+  fileUploadLabel: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    cursor: 'pointer',
+    color: '#666',
+    fontSize: '14px',
+  },
+  fileUploadHint: {
+    fontSize: '12px',
+    color: '#999',
+    marginTop: '4px',
+  },
+  fileAttached: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px',
+    backgroundColor: '#E8F5E9',
+    borderRadius: '8px',
+    border: '2px solid #217346',
+  },
+  fileInfo: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  fileName: {
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: '4px',
+  },
+  fileSize: {
+    fontSize: '12px',
+    color: '#666',
+  },
+  removeFileButton: {
+    padding: '8px 12px',
+    backgroundColor: '#F44336',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    transition: 'opacity 0.2s',
   },
 };
 
