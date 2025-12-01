@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { FaBox, FaPlus, FaArrowUp, FaArrowDown, FaDollarSign } from 'react-icons/fa';
+import { FaBox, FaPlus, FaArrowUp, FaArrowDown, FaDollarSign, FaCalendarAlt } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import useInventoryStore from '../store/inventoryStore';
 import StatsCard from '../components/StatsCard';
+import MonthlyCalendar from '../components/MonthlyCalendar';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 
 const Dashboard = () => {
@@ -72,32 +73,29 @@ const Dashboard = () => {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>대시보드</h2>
+      <div style={styles.header}>
+        <h2 style={styles.title}>대시보드</h2>
+        <button onClick={() => setShowAddModal(true)} style={styles.addButton}>
+          <FaPlus style={{ marginRight: '8px' }} />
+          제품 추가
+        </button>
+      </div>
 
       <div style={styles.statsGrid}>
         <StatsCard
           icon={<FaBox />}
           title="총 제품 수"
           value={formatNumber(stats.totalProducts)}
-          color="#4CAF50"
+          color="#7AB547"
           subtitle="등록된 제품"
         />
         <StatsCard
           icon={<FaBox />}
           title="총 재고 수량"
           value={formatNumber(stats.totalQuantity)}
-          color="#2196F3"
+          color="#2C5AA0"
           subtitle="전체 재고"
         />
-        <div onClick={() => setShowAddModal(true)} style={{ cursor: 'pointer' }}>
-          <StatsCard
-            icon={<FaPlus />}
-            title="재고 추가"
-            value="등록"
-            color="#4CAF50"
-            subtitle="새 제품 등록"
-          />
-        </div>
         <StatsCard
           icon={<FaDollarSign />}
           title="총 재고 가치"
@@ -105,6 +103,10 @@ const Dashboard = () => {
           color="#9C27B0"
           subtitle="원"
         />
+      </div>
+
+      <div style={styles.calendarSection}>
+        <MonthlyCalendar transactions={transactions} />
       </div>
 
       <div style={styles.gridRow}>
@@ -270,16 +272,39 @@ const styles = {
     maxWidth: '1400px',
     margin: '0 auto',
   },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '24px',
+  },
   title: {
     fontSize: '28px',
     fontWeight: 'bold',
-    marginBottom: '24px',
-    color: '#333',
+    color: '#2C5AA0',
+    margin: 0,
+  },
+  addButton: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '12px 24px',
+    backgroundColor: '#7AB547',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    boxShadow: '0 2px 4px rgba(122, 181, 71, 0.3)',
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: '20px',
+    marginBottom: '24px',
+  },
+  calendarSection: {
     marginBottom: '24px',
   },
   gridRow: {
