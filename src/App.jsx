@@ -44,7 +44,7 @@ const styles = {
     backgroundColor: '#F8FAFB',
   },
   main: {
-    minHeight: 'calc(100vh - 70px)',
+    minHeight: 'calc(100vh - 140px)',
   },
 };
 
