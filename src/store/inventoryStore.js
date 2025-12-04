@@ -92,6 +92,15 @@ const useInventoryStore = create(
         },
       ],
 
+      // 판매 내역
+      sales: [],
+
+      // 월별 마감 내역
+      monthlyClosings: [],
+
+      // 견적 내역
+      quotes: [],
+
       // 거래 내역
       transactions: [
         {
@@ -232,6 +241,241 @@ const useInventoryStore = create(
           (sum, p) => sum + p.quantity * p.price,
           0
         );
+      },
+
+      // 판매 추가
+      addSale: (sale) => {
+        const product = get().products.find((p) => p.id === sale.productId);
+        
+        // 재고 확인
+        if (!product || product.quantity < sale.quantity) {
+          return { success: false, message: '재고가 부족합니다!' };
+        }
+
+        // 재고 차감
+        get().updateProduct(sale.productId, {
+          quantity: product.quantity - sale.quantity,
+        });
+
+        // 판매 내역 추가
+        const newSale = {
+          ...sale,
+          id: Date.now(),
+          date: new Date().toISOString(),
+          productName: product.name,
+          unitPrice: sale.unitPrice || product.price,
+          totalPrice: sale.totalAmount || (sale.quantity * (sale.unitPrice || product.price)),
+          paidAmount: sale.paidAmount || 0,
+        };
+
+        set((state) => ({
+          sales: [newSale, ...state.sales],
+        }));
+
+        // 거래 내역에도 출고로 기록
+        const newTransaction = {
+          id: Date.now() + 1,
+          productId: sale.productId,
+          type: 'out',
+          quantity: sale.quantity,
+          date: new Date().toISOString(),
+          note: `판매 - ${sale.customer}`,
+          user: sale.user,
+        };
+
+        set((state) => ({
+          transactions: [newTransaction, ...state.transactions],
+        }));
+
+        return { success: true, message: '판매가 완료되었습니다!' };
+      },
+
+      // 판매 삭제
+      deleteSale: (id) => {
+        set((state) => ({
+          sales: state.sales.filter((s) => s.id !== id),
+        }));
+      },
+
+      // 판매 총액 계산
+      getTotalSales: () => {
+        return get().sales.reduce((sum, s) => sum + s.totalPrice, 0);
+      },
+
+      // 기간별 판매 조회
+      getSalesByDateRange: (startDate, endDate) => {
+        return get().sales.filter((s) => {
+          const saleDate = new Date(s.date);
+          return saleDate >= new Date(startDate) && saleDate <= new Date(endDate);
+        });
+      },
+
+      // 월별 마감 생성
+      createMonthlyClosing: (year, month) => {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59);
+        
+        // 해당 월의 판매 내역 조회
+        const monthlySales = get().sales.filter((s) => {
+          const saleDate = new Date(s.date);
+          return saleDate >= startDate && saleDate <= endDate;
+        });
+
+        // 이미 마감된 월인지 확인
+        const existingClosing = get().monthlyClosings.find(
+          (c) => c.year === year && c.month === month
+        );
+
+        if (existingClosing) {
+          return { success: false, message: '이미 마감된 월입니다.' };
+        }
+
+        // 마감 데이터 계산
+        const totalSales = monthlySales.reduce((sum, s) => sum + (s.totalPrice || 0), 0);
+        const totalPaid = monthlySales.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+        const totalUnpaid = totalSales - totalPaid;
+        const salesCount = monthlySales.length;
+
+        // 카테고리별 매출
+        const categoryBreakdown = {};
+        monthlySales.forEach((sale) => {
+          const product = get().products.find((p) => p.id === sale.productId);
+          if (product) {
+            const category = product.category;
+            if (!categoryBreakdown[category]) {
+              categoryBreakdown[category] = {
+                sales: 0,
+                quantity: 0,
+                paid: 0,
+              };
+            }
+            categoryBreakdown[category].sales += sale.totalPrice || 0;
+            categoryBreakdown[category].quantity += sale.quantity || 0;
+            categoryBreakdown[category].paid += sale.paidAmount || 0;
+          }
+        });
+
+        // 수금 상태별 분류
+        const fullyPaid = monthlySales.filter((s) => 
+          (s.totalPrice || 0) === (s.paidAmount || 0)
+        ).length;
+        const partiallyPaid = monthlySales.filter((s) => 
+          (s.paidAmount || 0) > 0 && (s.paidAmount || 0) < (s.totalPrice || 0)
+        ).length;
+        const unpaid = monthlySales.filter((s) => 
+          (s.paidAmount || 0) === 0
+        ).length;
+
+        const newClosing = {
+          id: Date.now(),
+          year,
+          month,
+          closingDate: new Date().toISOString(),
+          totalSales,
+          totalPaid,
+          totalUnpaid,
+          salesCount,
+          categoryBreakdown: Object.entries(categoryBreakdown).map(([category, data]) => ({
+            category,
+            ...data,
+          })),
+          paymentStatus: {
+            fullyPaid,
+            partiallyPaid,
+            unpaid,
+          },
+          salesData: monthlySales, // 마감 시점의 판매 데이터 저장
+        };
+
+        set((state) => ({
+          monthlyClosings: [...state.monthlyClosings, newClosing],
+        }));
+
+        return { success: true, message: '월별 마감이 완료되었습니다.', closing: newClosing };
+      },
+
+      // 월별 마감 조회
+      getMonthlyClosing: (year, month) => {
+        return get().monthlyClosings.find(
+          (c) => c.year === year && c.month === month
+        );
+      },
+
+      // 월별 마감 삭제
+      deleteMonthlyClosing: (id) => {
+        set((state) => ({
+          monthlyClosings: state.monthlyClosings.filter((c) => c.id !== id),
+        }));
+      },
+
+      // 모든 월별 마감 조회
+      getAllMonthlyClosings: () => {
+        return get().monthlyClosings.sort((a, b) => {
+          if (a.year !== b.year) return b.year - a.year;
+          return b.month - a.month;
+        });
+      },
+
+      // 견적 추가
+      addQuote: (quote) => {
+        const newQuote = {
+          ...quote,
+          id: Date.now(),
+          createdDate: new Date().toISOString(),
+        };
+        set((state) => ({
+          quotes: [newQuote, ...state.quotes],
+        }));
+        return { success: true, message: '견적이 등록되었습니다!' };
+      },
+
+      // 견적 수정
+      updateQuote: (id, updates) => {
+        set((state) => ({
+          quotes: state.quotes.map((q) =>
+            q.id === id
+              ? { ...q, ...updates, updatedDate: new Date().toISOString() }
+              : q
+          ),
+        }));
+        return { success: true, message: '견적이 수정되었습니다!' };
+      },
+
+      // 견적 삭제
+      deleteQuote: (id) => {
+        set((state) => ({
+          quotes: state.quotes.filter((q) => q.id !== id),
+        }));
+      },
+
+      // 견적 총액 계산
+      getTotalQuotes: () => {
+        return get().quotes.reduce((sum, q) => sum + (q.totalAmount || 0), 0);
+      },
+
+      // 성사된 견적 총액
+      getSuccessQuotesTotal: () => {
+        return get().quotes
+          .filter((q) => q.status === 'success')
+          .reduce((sum, q) => sum + (q.totalAmount || 0), 0);
+      },
+
+      // 가망고객 견적 조회
+      getProspectQuotes: () => {
+        return get().quotes.filter((q) => q.isProspect === true);
+      },
+
+      // 상태별 견적 조회
+      getQuotesByStatus: (status) => {
+        return get().quotes.filter((q) => q.status === status);
+      },
+
+      // 기간별 견적 조회
+      getQuotesByDateRange: (startDate, endDate) => {
+        return get().quotes.filter((q) => {
+          const quoteDate = new Date(q.createdDate);
+          return quoteDate >= new Date(startDate) && quoteDate <= new Date(endDate);
+        });
       },
     }),
     {
