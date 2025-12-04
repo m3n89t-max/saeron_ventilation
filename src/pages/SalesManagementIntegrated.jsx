@@ -110,9 +110,9 @@ const DashboardTab = () => {
     { name: '배송완료', value: salesStats.deliveredOrders, color: '#4CAF50' },
   ];
 
-  // 최근 7일 매출 추이
-  const last7Days = [];
-  for (let i = 6; i >= 0; i--) {
+  // 최근 30일 매출 추이
+  const last30Days = [];
+  for (let i = 29; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     const dayOrders = orders.filter((o) => {
@@ -121,7 +121,7 @@ const DashboardTab = () => {
     });
     const dayTotal = dayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
     
-    last7Days.push({
+    last30Days.push({
       date: date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }),
       sales: dayTotal / 1000000,
     });
@@ -400,19 +400,24 @@ const DashboardTab = () => {
 
       {/* 차트 그리드 */}
       <div style={styles.chartsGrid}>
-        {/* 최근 7일 매출 추이 */}
+        {/* 최근 30일 매출 추이 */}
         <div style={styles.chartCard}>
-          <h3 style={styles.chartTitle}>최근 7일 매출 추이</h3>
+          <h3 style={styles.chartTitle}>최근 30일 매출 추이</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={last7Days}>
+            <LineChart data={last30Days}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis dataKey="date" stroke="#666" />
+              <XAxis 
+                dataKey="date" 
+                stroke="#666"
+                interval={4}
+                tick={{ fontSize: 12 }}
+              />
               <YAxis stroke="#666" label={{ value: '(백만원)', angle: -90, position: 'insideLeft' }} />
               <Tooltip
                 formatter={(value) => [`${value.toFixed(1)}백만원`, '매출']}
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '8px' }}
               />
-              <Line type="monotone" dataKey="sales" stroke="#2196F3" strokeWidth={2} dot={{ fill: '#2196F3', r: 4 }} />
+              <Line type="monotone" dataKey="sales" stroke="#2196F3" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
