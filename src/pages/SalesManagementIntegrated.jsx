@@ -118,11 +118,15 @@ const DashboardTab = () => {
 
   const handleRemoveItem = (index) => {
     const newItems = saleFormData.items.filter((_, i) => i !== index);
+    const total = newItems.reduce(
+      (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+      0
+    );
     setSaleFormData({
       ...saleFormData,
       items: newItems,
+      totalAmount: total,
     });
-    calculateTotal(newItems);
   };
 
   const handleProductSelect = (index, productId) => {
@@ -135,41 +139,42 @@ const DashboardTab = () => {
         productName: product.name,
         unitPrice: product.price,
       };
+      const total = newItems.reduce(
+        (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+        0
+      );
       setSaleFormData({
         ...saleFormData,
         items: newItems,
+        totalAmount: total,
       });
-      calculateTotal(newItems);
     }
   };
 
   const handleQuantityChange = (index, quantity) => {
     const newItems = [...saleFormData.items];
     newItems[index].quantity = parseInt(quantity) || 1;
-    setSaleFormData({
-      ...saleFormData,
-      items: newItems,
-    });
-    calculateTotal(newItems);
-  };
-
-  const handlePriceChange = (index, price) => {
-    const newItems = [...saleFormData.items];
-    newItems[index].unitPrice = parseInt(price) || 0;
-    setSaleFormData({
-      ...saleFormData,
-      items: newItems,
-    });
-    calculateTotal(newItems);
-  };
-
-  const calculateTotal = (items) => {
-    const total = items.reduce(
+    const total = newItems.reduce(
       (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
       0
     );
     setSaleFormData({
       ...saleFormData,
+      items: newItems,
+      totalAmount: total,
+    });
+  };
+
+  const handlePriceChange = (index, price) => {
+    const newItems = [...saleFormData.items];
+    newItems[index].unitPrice = parseInt(price) || 0;
+    const total = newItems.reduce(
+      (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
+      0
+    );
+    setSaleFormData({
+      ...saleFormData,
+      items: newItems,
       totalAmount: total,
     });
   };
