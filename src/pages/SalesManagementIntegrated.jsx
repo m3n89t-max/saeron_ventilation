@@ -55,6 +55,9 @@ const DashboardTab = () => {
   const { products } = useInventoryStore();
   
   const [showSaleModal, setShowSaleModal] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [viewMode, setViewMode] = useState('all'); // 'all' 또는 'monthly'
   const [saleFormData, setSaleFormData] = useState({
     customerId: '',
     customerName: '',
@@ -75,7 +78,30 @@ const DashboardTab = () => {
   }, [updateSalesStats]);
 
   const topCustomers = getTopCustomers(5);
-  const recentOrders = getRecentOrders(5);
+  
+  // 필터링된 주문 목록
+  const filteredOrders = orders.filter((order) => {
+    if (viewMode === 'all') return true;
+    
+    const orderDate = new Date(order.orderDate);
+    const orderYear = orderDate.getFullYear();
+    const orderMonth = orderDate.getMonth() + 1;
+    
+    return orderYear === selectedYear && orderMonth === selectedMonth;
+  });
+  
+  // 필터링된 주문 중 최근 순으로 정렬
+  const displayOrders = [...filteredOrders]
+    .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
+    .slice(0, viewMode === 'all' ? 10 : filteredOrders.length);
+  
+  // 현재 필터의 통계
+  const filteredStats = {
+    totalOrders: filteredOrders.length,
+    totalSales: filteredOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+    totalPaid: filteredOrders.reduce((sum, o) => sum + (o.paidAmount || 0), 0),
+    totalBalance: filteredOrders.reduce((sum, o) => sum + (o.totalAmount - (o.paidAmount || 0)), 0),
+  };
 
   // 주문 상태별 통계
   const orderStatusData = [
@@ -266,13 +292,83 @@ const DashboardTab = () => {
 
   return (
     <>
-      {/* 판매 등록 버튼 */}
-      <div style={{ marginBottom: '24px' }}>
+      {/* 판매 등록 버튼 및 필터 */}
+      <div style={styles.headerControls}>
         <button style={styles.addButton} onClick={() => setShowSaleModal(true)}>
           <FiPlus style={{ marginRight: '8px' }} />
           판매 등록
         </button>
+        
+        <div style={styles.filterControls}>
+          <button
+            style={{
+              ...styles.viewModeButton,
+              ...(viewMode === 'all' ? styles.viewModeButtonActive : {}),
+            }}
+            onClick={() => setViewMode('all')}
+          >
+            전체 보기
+          </button>
+          <button
+            style={{
+              ...styles.viewModeButton,
+              ...(viewMode === 'monthly' ? styles.viewModeButtonActive : {}),
+            }}
+            onClick={() => setViewMode('monthly')}
+          >
+            월별 보기
+          </button>
+          
+          {viewMode === 'monthly' && (
+            <>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                style={styles.dateSelect}
+              >
+                {[2024, 2025, 2026].map((year) => (
+                  <option key={year} value={year}>
+                    {year}년
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                style={styles.dateSelect}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                  <option key={month} value={month}>
+                    {month}월
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
       </div>
+      
+      {/* 필터링된 통계 */}
+      {viewMode === 'monthly' && (
+        <div style={styles.filteredStatsBar}>
+          <div style={styles.filteredStat}>
+            <span style={styles.filteredStatLabel}>총 주문:</span>
+            <span style={styles.filteredStatValue}>{filteredStats.totalOrders}건</span>
+          </div>
+          <div style={styles.filteredStat}>
+            <span style={styles.filteredStatLabel}>총 판매액:</span>
+            <span style={{...styles.filteredStatValue, color: '#2196F3'}}>{formatCurrency(filteredStats.totalSales)}</span>
+          </div>
+          <div style={styles.filteredStat}>
+            <span style={styles.filteredStatLabel}>총 수금액:</span>
+            <span style={{...styles.filteredStatValue, color: '#4CAF50'}}>{formatCurrency(filteredStats.totalPaid)}</span>
+          </div>
+          <div style={styles.filteredStat}>
+            <span style={styles.filteredStatLabel}>미수금:</span>
+            <span style={{...styles.filteredStatValue, color: '#F44336'}}>{formatCurrency(filteredStats.totalBalance)}</span>
+          </div>
+        </div>
+      )}
 
       {/* 통계 카드 */}
       <div style={styles.statsGrid}>
@@ -383,7 +479,9 @@ const DashboardTab = () => {
 
       {/* 최근 주문 */}
       <div style={styles.recentOrders}>
-        <h3 style={styles.sectionTitle}>최근 주문</h3>
+        <h3 style={styles.sectionTitle}>
+          {viewMode === 'all' ? '최근 주문' : `${selectedYear}년 ${selectedMonth}월 주문 목록`}
+        </h3>
         <div style={styles.ordersTable}>
           <table style={styles.table}>
             <thead>
@@ -399,7 +497,16 @@ const DashboardTab = () => {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((order) => {
+              {displayOrders.length === 0 ? (
+                <tr>
+                  <td colSpan="8" style={{...styles.td, textAlign: 'center', padding: '40px', color: '#999'}}>
+                    {viewMode === 'monthly' 
+                      ? `${selectedYear}년 ${selectedMonth}월에 등록된 주문이 없습니다.`
+                      : '등록된 주문이 없습니다.'}
+                  </td>
+                </tr>
+              ) : (
+                displayOrders.map((order) => {
                 const paidAmount = order.paidAmount || 0;
                 const balance = order.totalAmount - paidAmount;
                 return (
@@ -441,7 +548,7 @@ const DashboardTab = () => {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
@@ -1038,6 +1145,73 @@ const styles = {
   },
   tabContent: {
     minHeight: '500px',
+  },
+  headerControls: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+    gap: '16px',
+  },
+  filterControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  viewModeButton: {
+    padding: '10px 20px',
+    backgroundColor: '#fff',
+    color: '#666',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+  },
+  viewModeButtonActive: {
+    backgroundColor: '#2196F3',
+    color: '#fff',
+    borderColor: '#2196F3',
+  },
+  dateSelect: {
+    padding: '10px 16px',
+    fontSize: '14px',
+    fontWeight: '600',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
+    backgroundColor: '#fff',
+    cursor: 'pointer',
+    outline: 'none',
+  },
+  filteredStatsBar: {
+    display: 'flex',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: '20px',
+    borderRadius: '12px',
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+    gap: '16px',
+  },
+  filteredStat: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  filteredStatLabel: {
+    fontSize: '13px',
+    color: '#666',
+    fontWeight: '500',
+  },
+  filteredStatValue: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#1a1a1a',
   },
   addButton: {
     display: 'flex',
