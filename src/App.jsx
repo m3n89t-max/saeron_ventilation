@@ -4,14 +4,12 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import SalesManagement from './pages/SalesManagement';
-import SalesDashboard from './pages/SalesDashboard';
+import SalesManagementIntegrated from './pages/SalesManagementIntegrated';
 import Quotes from './pages/Quotes';
 import MonthlyClosing from './pages/MonthlyClosing';
 import Transactions from './pages/Transactions';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import Customers from './pages/Customers';
-import Orders from './pages/Orders';
 
 function App() {
   return (
@@ -22,10 +20,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/inventory" element={<Inventory />} />
-            <Route path="/sales" element={<SalesDashboard />} />
+            <Route path="/sales" element={<SalesManagementIntegrated />} />
             <Route path="/sales-management" element={<SalesManagement />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/orders" element={<Orders />} />
             <Route path="/quotes" element={<Quotes />} />
             <Route path="/monthly-closing" element={<MonthlyClosing />} />
             <Route path="/transactions" element={<Transactions />} />
