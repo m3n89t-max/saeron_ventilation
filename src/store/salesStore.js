@@ -15,7 +15,7 @@ const useSalesStore = create(
           address: '서울시 강남구 테헤란로 123',
           manager: '김대성',
           managerPhone: '010-1234-5678',
-          grade: 'VIP',
+          customerType: 'B2B',
           totalPurchase: 15000000,
           registeredDate: new Date('2024-01-15').toISOString(),
         },
@@ -28,7 +28,7 @@ const useSalesStore = create(
           address: '경기도 성남시 분당구 판교로 456',
           manager: '이한국',
           managerPhone: '010-2345-6789',
-          grade: 'Gold',
+          customerType: 'B2B',
           totalPurchase: 8500000,
           registeredDate: new Date('2024-02-20').toISOString(),
         },
@@ -41,9 +41,22 @@ const useSalesStore = create(
           address: '서울시 영등포구 국회대로 789',
           manager: '박서울',
           managerPhone: '010-3456-7890',
-          grade: 'Silver',
+          customerType: 'B2B',
           totalPurchase: 5200000,
           registeredDate: new Date('2024-03-10').toISOString(),
+        },
+        {
+          id: 4,
+          code: 'CST-004',
+          name: '홍길동',
+          contact: '010-9999-8888',
+          email: 'hong@example.com',
+          address: '서울시 중구 남대문로 100',
+          manager: '홍길동',
+          managerPhone: '010-9999-8888',
+          customerType: 'B2C',
+          totalPurchase: 850000,
+          registeredDate: new Date('2024-04-05').toISOString(),
         },
       ],
 
@@ -121,8 +134,8 @@ const useSalesStore = create(
         deliveredOrders: 1,
       },
 
-      // 고객 등급
-      customerGrades: ['VIP', 'Gold', 'Silver', 'Bronze', '일반'],
+      // 고객 유형
+      customerTypes: ['B2B', 'B2C'],
 
       // 주문 상태
       orderStatuses: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],

@@ -61,10 +61,11 @@ const DashboardTab = () => {
   const [saleFormData, setSaleFormData] = useState({
     customerId: '',
     customerName: '',
+    manager: '',
     customerPhone: '',
     customerEmail: '',
     customerAddress: '',
-    customerCompany: '',
+    customerType: 'B2B',
     items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
     totalAmount: 0,
     paidAmount: 0,
@@ -127,10 +128,10 @@ const DashboardTab = () => {
     });
   }
 
-  // 고객 등급별 분포
-  const gradeDistribution = ['VIP', 'Gold', 'Silver', 'Bronze', '일반'].map((grade) => ({
-    name: grade,
-    count: customers.filter((c) => c.grade === grade).length,
+  // 고객 유형별 분포
+  const typeDistribution = ['B2B', 'B2C'].map((type) => ({
+    name: type,
+    count: customers.filter((c) => c.customerType === type).length,
   }));
 
   const handleAddItem = () => {
@@ -222,9 +223,9 @@ const DashboardTab = () => {
         contact: saleFormData.customerPhone || '',
         email: saleFormData.customerEmail || '',
         address: saleFormData.customerAddress || '',
-        manager: saleFormData.customerName || '익명',
+        manager: saleFormData.customerType === 'B2C' ? saleFormData.customerName : (saleFormData.manager || ''),
         managerPhone: saleFormData.customerPhone || '',
-        grade: '일반',
+        customerType: saleFormData.customerType,
       });
       customerId = newCustomer.id;
     }
@@ -254,10 +255,11 @@ const DashboardTab = () => {
     setSaleFormData({
       customerId: '',
       customerName: '',
+      manager: '',
       customerPhone: '',
       customerEmail: '',
       customerAddress: '',
-      customerCompany: '',
+      customerType: 'B2B',
       items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
       totalAmount: 0,
       paidAmount: 0,
@@ -446,11 +448,11 @@ const DashboardTab = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* 고객 등급 분포 */}
+        {/* 고객 유형 분포 */}
         <div style={styles.chartCard}>
-          <h3 style={styles.chartTitle}>고객 등급 분포</h3>
+          <h3 style={styles.chartTitle}>고객 유형 분포 (B2B/B2C)</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={gradeDistribution}>
+            <BarChart data={typeDistribution}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
               <XAxis dataKey="name" stroke="#666" />
               <YAxis stroke="#666" />
@@ -471,7 +473,7 @@ const DashboardTab = () => {
                 <div style={styles.rankBadge}>{index + 1}</div>
                 <div style={styles.customerInfo}>
                   <div style={styles.customerName}>{customer.name}</div>
-                  <div style={styles.customerGrade}>{customer.grade}</div>
+                  <div style={styles.customerGrade}>{customer.customerType || 'B2B'}</div>
                 </div>
                 <div style={styles.customerAmount}>
                   {formatCurrency(customer.totalPurchase)}
@@ -567,14 +569,23 @@ const DashboardTab = () => {
             <form onSubmit={handleSubmitSale} style={styles.form}>
               <div style={styles.formRow}>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>고객명 *</label>
-                  <input
-                    type="text"
-                    value={saleFormData.customerName}
-                    onChange={(e) => setSaleFormData({ ...saleFormData, customerName: e.target.value })}
-                    style={styles.input}
+                  <label style={styles.label}>고객 유형 *</label>
+                  <select
+                    value={saleFormData.customerType}
+                    onChange={(e) => {
+                      const type = e.target.value;
+                      setSaleFormData({ 
+                        ...saleFormData, 
+                        customerType: type,
+                        manager: type === 'B2C' ? saleFormData.customerName : saleFormData.manager
+                      });
+                    }}
+                    style={styles.select}
                     required
-                  />
+                  >
+                    <option value="B2B">B2B (기업)</option>
+                    <option value="B2C">B2C (개인)</option>
+                  </select>
                 </div>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>연락처</label>
@@ -584,6 +595,50 @@ const DashboardTab = () => {
                     onChange={(e) => setSaleFormData({ ...saleFormData, customerPhone: e.target.value })}
                     style={styles.input}
                   />
+                </div>
+              </div>
+
+              <div style={styles.formRow}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>
+                    {saleFormData.customerType === 'B2B' ? '업체명 *' : '고객명 *'}
+                  </label>
+                  <input
+                    type="text"
+                    value={saleFormData.customerName}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setSaleFormData({ 
+                        ...saleFormData, 
+                        customerName: name,
+                        manager: saleFormData.customerType === 'B2C' ? name : saleFormData.manager
+                      });
+                    }}
+                    style={styles.input}
+                    placeholder={saleFormData.customerType === 'B2B' ? '예: (주)새론' : '예: 홍길동'}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>
+                    {saleFormData.customerType === 'B2B' ? '담당자명' : ''}
+                  </label>
+                  {saleFormData.customerType === 'B2B' ? (
+                    <input
+                      type="text"
+                      value={saleFormData.manager}
+                      onChange={(e) => setSaleFormData({ ...saleFormData, manager: e.target.value })}
+                      style={styles.input}
+                      placeholder="담당자명 입력"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={saleFormData.customerName}
+                      style={{...styles.input, backgroundColor: '#f5f5f5'}}
+                      readOnly
+                    />
+                  )}
                 </div>
               </div>
 
@@ -776,9 +831,9 @@ const DashboardTab = () => {
 
 // 고객 관리 탭
 const CustomersTab = () => {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, customerGrades, getOrdersByCustomer } = useSalesStore();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, customerTypes, getOrdersByCustomer } = useSalesStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [formData, setFormData] = useState({
@@ -788,16 +843,16 @@ const CustomersTab = () => {
     address: '',
     manager: '',
     managerPhone: '',
-    grade: '일반',
+    customerType: 'B2B',
   });
 
   const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.manager.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGrade = selectedGrade === 'all' || customer.grade === selectedGrade;
-    return matchesSearch && matchesGrade;
+      (customer.manager && customer.manager.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesType = selectedType === 'all' || customer.customerType === selectedType;
+    return matchesSearch && matchesType;
   });
 
   const handleOpenModal = (customer = null) => {
@@ -808,9 +863,9 @@ const CustomersTab = () => {
         contact: customer.contact,
         email: customer.email,
         address: customer.address,
-        manager: customer.manager,
-        managerPhone: customer.managerPhone,
-        grade: customer.grade,
+        manager: customer.manager || '',
+        managerPhone: customer.managerPhone || '',
+        customerType: customer.customerType || 'B2B',
       });
     } else {
       setEditingCustomer(null);
@@ -821,7 +876,7 @@ const CustomersTab = () => {
         address: '',
         manager: '',
         managerPhone: '',
-        grade: '일반',
+        customerType: 'B2B',
       });
     }
     setShowModal(true);
@@ -848,12 +903,9 @@ const CustomersTab = () => {
     }
   };
 
-  const gradeColors = {
-    VIP: '#9C27B0',
-    Gold: '#FF9800',
-    Silver: '#9E9E9E',
-    Bronze: '#795548',
-    일반: '#607D8B',
+  const typeColors = {
+    B2B: '#2196F3',
+    B2C: '#4CAF50',
   };
 
   return (
@@ -885,22 +937,22 @@ const CustomersTab = () => {
           <button
             style={{
               ...styles.gradeFilter,
-              ...(selectedGrade === 'all' ? styles.gradeFilterActive : {}),
+              ...(selectedType === 'all' ? styles.gradeFilterActive : {}),
             }}
-            onClick={() => setSelectedGrade('all')}
+            onClick={() => setSelectedType('all')}
           >
             전체
           </button>
-          {customerGrades.map((grade) => (
+          {customerTypes && customerTypes.map((type) => (
             <button
-              key={grade}
+              key={type}
               style={{
                 ...styles.gradeFilter,
-                ...(selectedGrade === grade ? styles.gradeFilterActive : {}),
+                ...(selectedType === type ? styles.gradeFilterActive : {}),
               }}
-              onClick={() => setSelectedGrade(grade)}
+              onClick={() => setSelectedType(type)}
             >
-              {grade}
+              {type}
             </button>
           ))}
         </div>
@@ -916,10 +968,10 @@ const CustomersTab = () => {
                 <div style={styles.customerCode}>{customer.code}</div>
                 <div style={{
                   ...styles.gradeBadge,
-                  backgroundColor: gradeColors[customer.grade] + '20',
-                  color: gradeColors[customer.grade],
+                  backgroundColor: typeColors[customer.customerType || 'B2B'] + '20',
+                  color: typeColors[customer.customerType || 'B2B'],
                 }}>
-                  {customer.grade}
+                  {customer.customerType || 'B2B'}
                 </div>
               </div>
 
@@ -995,12 +1047,42 @@ const CustomersTab = () => {
             </h2>
             <form onSubmit={handleSubmit} style={styles.form}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>고객명 *</label>
+                <label style={styles.label}>고객 유형 *</label>
+                <select
+                  value={formData.customerType}
+                  onChange={(e) => {
+                    const type = e.target.value;
+                    setFormData({ 
+                      ...formData, 
+                      customerType: type,
+                      manager: type === 'B2C' ? formData.name : formData.manager
+                    });
+                  }}
+                  style={styles.select}
+                  required
+                >
+                  <option value="B2B">B2B (기업)</option>
+                  <option value="B2C">B2C (개인)</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  {formData.customerType === 'B2B' ? '업체명 *' : '고객명 *'}
+                </label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setFormData({ 
+                      ...formData, 
+                      name,
+                      manager: formData.customerType === 'B2C' ? name : formData.manager
+                    });
+                  }}
                   style={styles.input}
+                  placeholder={formData.customerType === 'B2B' ? '예: (주)새론' : '예: 홍길동'}
                   required
                 />
               </div>
@@ -1041,41 +1123,47 @@ const CustomersTab = () => {
 
               <div style={styles.formRow}>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>담당자명 *</label>
-                  <input
-                    type="text"
-                    value={formData.manager}
-                    onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-                    style={styles.input}
-                    required
-                  />
+                  <label style={styles.label}>
+                    {formData.customerType === 'B2B' ? '담당자명' : ''}
+                  </label>
+                  {formData.customerType === 'B2B' ? (
+                    <input
+                      type="text"
+                      value={formData.manager}
+                      onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+                      style={styles.input}
+                      placeholder="담당자명 입력"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.name}
+                      style={{...styles.input, backgroundColor: '#f5f5f5'}}
+                      readOnly
+                    />
+                  )}
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>담당자 연락처 *</label>
-                  <input
-                    type="tel"
-                    value={formData.managerPhone}
-                    onChange={(e) => setFormData({ ...formData, managerPhone: e.target.value })}
-                    style={styles.input}
-                    required
-                  />
+                  <label style={styles.label}>
+                    {formData.customerType === 'B2B' ? '담당자 연락처' : ''}
+                  </label>
+                  {formData.customerType === 'B2B' ? (
+                    <input
+                      type="tel"
+                      value={formData.managerPhone}
+                      onChange={(e) => setFormData({ ...formData, managerPhone: e.target.value })}
+                      style={styles.input}
+                      placeholder="담당자 연락처 입력"
+                    />
+                  ) : (
+                    <input
+                      type="tel"
+                      value={formData.contact}
+                      style={{...styles.input, backgroundColor: '#f5f5f5'}}
+                      readOnly
+                    />
+                  )}
                 </div>
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>고객 등급 *</label>
-                <select
-                  value={formData.grade}
-                  onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                  style={styles.select}
-                  required
-                >
-                  {customerGrades.map((grade) => (
-                    <option key={grade} value={grade}>
-                      {grade}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div style={styles.modalActions}>
