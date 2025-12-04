@@ -62,6 +62,7 @@ const useSalesStore = create(
             { productId: 3, productName: '열회수형 환기시스템', quantity: 2, price: 2500000, total: 5000000 },
           ],
           totalAmount: 9500000,
+          paidAmount: 9500000,
           paymentStatus: 'paid',
           paymentMethod: '계좌이체',
           shippingAddress: '서울시 강남구 테헤란로 123 현장사무소',
@@ -81,6 +82,7 @@ const useSalesStore = create(
             { productId: 7, productName: '환풍기 제어시스템', quantity: 5, price: 350000, total: 1750000 },
           ],
           totalAmount: 5350000,
+          paidAmount: 0,
           paymentStatus: 'pending',
           paymentMethod: '세금계산서',
           shippingAddress: '경기도 성남시 분당구 판교로 456',
@@ -99,10 +101,11 @@ const useSalesStore = create(
             { productId: 4, productName: '천장형 복합환풍기 (400mm)', quantity: 8, price: 550000, total: 4400000 },
           ],
           totalAmount: 4400000,
-          paymentStatus: 'pending',
+          paidAmount: 2000000,
+          paymentStatus: 'partial',
           paymentMethod: '계좌이체',
           shippingAddress: '서울시 영등포구 국회대로 789',
-          note: '긴급 주문',
+          note: '긴급 주문 - 부분수금 2,000,000원 (잔액 2,400,000원)',
           user: '박영업',
         },
       ],
@@ -166,7 +169,7 @@ const useSalesStore = create(
           orderNumber: `ORD-${new Date().getFullYear()}-${String(get().orders.length + 1).padStart(3, '0')}`,
           orderDate: new Date().toISOString(),
           status: 'pending',
-          paymentStatus: 'pending',
+          paidAmount: order.paidAmount || 0,
         };
         
         // 고객의 총 구매액 업데이트

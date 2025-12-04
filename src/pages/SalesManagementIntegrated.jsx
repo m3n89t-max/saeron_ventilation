@@ -64,6 +64,7 @@ const DashboardTab = () => {
     customerCompany: '',
     items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
     totalAmount: 0,
+    paidAmount: 0,
     paymentStatus: 'paid',
     paymentMethod: 'card',
     note: '',
@@ -218,6 +219,7 @@ const DashboardTab = () => {
         total: item.quantity * item.unitPrice,
       })),
       totalAmount: saleFormData.totalAmount,
+      paidAmount: saleFormData.paymentStatus === 'partial' ? saleFormData.paidAmount : (saleFormData.paymentStatus === 'paid' ? saleFormData.totalAmount : 0),
       paymentStatus: saleFormData.paymentStatus,
     });
 
@@ -232,6 +234,7 @@ const DashboardTab = () => {
       customerCompany: '',
       items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
       totalAmount: 0,
+      paidAmount: 0,
       paymentStatus: 'paid',
       paymentMethod: 'card',
       note: '',
@@ -389,37 +392,56 @@ const DashboardTab = () => {
                 <th style={styles.th}>고객명</th>
                 <th style={styles.th}>주문일</th>
                 <th style={styles.th}>금액</th>
+                <th style={styles.th}>수금액</th>
+                <th style={styles.th}>잔액</th>
                 <th style={styles.th}>상태</th>
                 <th style={styles.th}>결제상태</th>
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id} style={styles.tableRow}>
-                  <td style={styles.td}>{order.orderNumber}</td>
-                  <td style={styles.td}>{order.customerName}</td>
-                  <td style={styles.td}>{formatDate(order.orderDate)}</td>
-                  <td style={styles.td}>{formatCurrency(order.totalAmount)}</td>
-                  <td style={styles.td}>
-                    <span style={{
-                      ...styles.statusBadge,
-                      backgroundColor: statusColors[order.status] + '20',
-                      color: statusColors[order.status],
-                    }}>
-                      {statusLabels[order.status]}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    <span style={{
-                      ...styles.statusBadge,
-                      backgroundColor: order.paymentStatus === 'paid' ? '#4CAF5020' : '#FFC10720',
-                      color: order.paymentStatus === 'paid' ? '#4CAF50' : '#FFC107',
-                    }}>
-                      {paymentStatusLabels[order.paymentStatus]}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {recentOrders.map((order) => {
+                const paidAmount = order.paidAmount || 0;
+                const balance = order.totalAmount - paidAmount;
+                return (
+                  <tr key={order.id} style={styles.tableRow}>
+                    <td style={styles.td}>{order.orderNumber}</td>
+                    <td style={styles.td}>{order.customerName}</td>
+                    <td style={styles.td}>{formatDate(order.orderDate)}</td>
+                    <td style={styles.td}>{formatCurrency(order.totalAmount)}</td>
+                    <td style={styles.td}>
+                      <span style={{ color: '#4CAF50', fontWeight: '600' }}>
+                        {formatCurrency(paidAmount)}
+                      </span>
+                    </td>
+                    <td style={styles.td}>
+                      <span style={{ 
+                        color: balance > 0 ? '#F44336' : '#666', 
+                        fontWeight: balance > 0 ? '600' : '400' 
+                      }}>
+                        {formatCurrency(balance)}
+                      </span>
+                    </td>
+                    <td style={styles.td}>
+                      <span style={{
+                        ...styles.statusBadge,
+                        backgroundColor: statusColors[order.status] + '20',
+                        color: statusColors[order.status],
+                      }}>
+                        {statusLabels[order.status]}
+                      </span>
+                    </td>
+                    <td style={styles.td}>
+                      <span style={{
+                        ...styles.statusBadge,
+                        backgroundColor: order.paymentStatus === 'paid' ? '#4CAF5020' : (order.paymentStatus === 'partial' ? '#FF980020' : '#FFC10720'),
+                        color: order.paymentStatus === 'paid' ? '#4CAF50' : (order.paymentStatus === 'partial' ? '#FF9800' : '#FFC107'),
+                      }}>
+                        {paymentStatusLabels[order.paymentStatus]}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -557,7 +579,14 @@ const DashboardTab = () => {
                   <label style={styles.label}>결제 상태 *</label>
                   <select
                     value={saleFormData.paymentStatus}
-                    onChange={(e) => setSaleFormData({ ...saleFormData, paymentStatus: e.target.value })}
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      setSaleFormData({ 
+                        ...saleFormData, 
+                        paymentStatus: newStatus,
+                        paidAmount: newStatus === 'paid' ? saleFormData.totalAmount : (newStatus === 'pending' ? 0 : saleFormData.paidAmount)
+                      });
+                    }}
                     style={styles.select}
                     required
                   >
@@ -567,6 +596,46 @@ const DashboardTab = () => {
                   </select>
                 </div>
               </div>
+
+              {/* 부분결제 시 수금액 입력 */}
+              {saleFormData.paymentStatus === 'partial' && (
+                <div style={styles.partialPaymentSection}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>수금액 *</label>
+                    <input
+                      type="number"
+                      value={saleFormData.paidAmount}
+                      onChange={(e) => {
+                        const paid = parseInt(e.target.value) || 0;
+                        if (paid <= saleFormData.totalAmount) {
+                          setSaleFormData({ ...saleFormData, paidAmount: paid });
+                        }
+                      }}
+                      style={styles.input}
+                      min="0"
+                      max={saleFormData.totalAmount}
+                      placeholder="수금액 입력"
+                      required
+                    />
+                  </div>
+                  <div style={styles.paymentSummary}>
+                    <div style={styles.summaryRow}>
+                      <span style={styles.summaryLabel}>총 판매금액:</span>
+                      <span style={styles.summaryValue}>{formatCurrency(saleFormData.totalAmount)}</span>
+                    </div>
+                    <div style={styles.summaryRow}>
+                      <span style={styles.summaryLabel}>수금액:</span>
+                      <span style={{...styles.summaryValue, color: '#4CAF50'}}>{formatCurrency(saleFormData.paidAmount)}</span>
+                    </div>
+                    <div style={{...styles.summaryRow, borderTop: '2px solid #e0e0e0', paddingTop: '12px', marginTop: '8px'}}>
+                      <span style={{...styles.summaryLabel, fontWeight: 'bold', fontSize: '16px'}}>미수금(잔액):</span>
+                      <span style={{...styles.summaryValue, fontWeight: 'bold', fontSize: '18px', color: '#F44336'}}>
+                        {formatCurrency(saleFormData.totalAmount - saleFormData.paidAmount)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div style={styles.formGroup}>
                 <label style={styles.label}>비고</label>
@@ -1434,6 +1503,37 @@ const styles = {
     fontSize: '16px',
     fontWeight: '600',
     cursor: 'pointer',
+  },
+  partialPaymentSection: {
+    backgroundColor: '#f9f9f9',
+    padding: '20px',
+    borderRadius: '12px',
+    marginTop: '16px',
+    marginBottom: '16px',
+    border: '2px solid #e3f2fd',
+  },
+  paymentSummary: {
+    marginTop: '16px',
+    padding: '16px',
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    border: '1px solid #e0e0e0',
+  },
+  summaryRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 0',
+  },
+  summaryLabel: {
+    fontSize: '14px',
+    color: '#666',
+    fontWeight: '500',
+  },
+  summaryValue: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
 };
 
