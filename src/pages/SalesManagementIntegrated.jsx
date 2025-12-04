@@ -671,6 +671,15 @@ const DashboardTab = () => {
                   </button>
                 </div>
 
+                {/* 제품 목록 헤더 */}
+                <div style={styles.itemsTableHeader}>
+                  <div style={{flex: 2, fontWeight: '600', fontSize: '13px', color: '#666'}}>제품 (카테고리 / 제품명)</div>
+                  <div style={{flex: 1, fontWeight: '600', fontSize: '13px', color: '#666', textAlign: 'center'}}>수량</div>
+                  <div style={{flex: 1, fontWeight: '600', fontSize: '13px', color: '#666', textAlign: 'center'}}>단가</div>
+                  <div style={{flex: 1, fontWeight: '600', fontSize: '13px', color: '#666', textAlign: 'center'}}>합계</div>
+                  <div style={{width: '48px'}}></div>
+                </div>
+
                 {saleFormData.items.map((item, index) => (
                   <div key={index} style={styles.itemEditRow}>
                     <select
@@ -682,7 +691,7 @@ const DashboardTab = () => {
                       <option value="">제품 선택</option>
                       {products.map((product) => (
                         <option key={product.id} value={product.id}>
-                          {product.name} ({formatCurrency(product.price)})
+                          [{product.category}] {product.name} ({formatCurrency(product.price)})
                         </option>
                       ))}
                     </select>
@@ -690,7 +699,7 @@ const DashboardTab = () => {
                       type="number"
                       value={item.quantity}
                       onChange={(e) => handleQuantityChange(index, e.target.value)}
-                      style={{ ...styles.input, flex: 1 }}
+                      style={{ ...styles.input, flex: 1, textAlign: 'center' }}
                       min="1"
                       placeholder="수량"
                       required
@@ -699,14 +708,14 @@ const DashboardTab = () => {
                       type="number"
                       value={item.unitPrice}
                       onChange={(e) => handlePriceChange(index, e.target.value)}
-                      style={{ ...styles.input, flex: 1 }}
+                      style={{ ...styles.input, flex: 1, textAlign: 'right' }}
                       placeholder="단가"
                       required
                     />
                     <input
                       type="text"
                       value={formatCurrency(item.quantity * item.unitPrice)}
-                      style={{ ...styles.input, flex: 1 }}
+                      style={{ ...styles.input, flex: 1, textAlign: 'right', fontWeight: '600' }}
                       readOnly
                     />
                     {saleFormData.items.length > 1 && (
@@ -1709,6 +1718,13 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '16px',
+  },
+  itemsTableHeader: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '12px',
+    paddingBottom: '8px',
+    borderBottom: '2px solid #e0e0e0',
   },
   addItemButton: {
     display: 'flex',
