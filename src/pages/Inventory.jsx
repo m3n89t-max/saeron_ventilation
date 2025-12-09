@@ -21,6 +21,7 @@ const Inventory = () => {
     quantity: 0,
     price: 0,
     supplier: '',
+    date: new Date().toISOString().split('T')[0], // 오늘 날짜를 기본값으로
   });
 
   const [stockFormData, setStockFormData] = useState({
@@ -92,6 +93,7 @@ const Inventory = () => {
       quantity: 0,
       price: 0,
       supplier: '',
+      date: new Date().toISOString().split('T')[0],
     });
     setEditingProduct(null);
   };
@@ -113,6 +115,7 @@ const Inventory = () => {
       quantity: product.quantity,
       price: product.price,
       supplier: product.supplier,
+      date: product.date || new Date().toISOString().split('T')[0],
       // 수정 시에는 기존 코드, 위치, 최소수량 유지
       code: product.code,
       location: product.location,
@@ -177,14 +180,12 @@ const Inventory = () => {
         <table style={styles.table}>
           <thead>
             <tr style={styles.tableHeader}>
-              <th style={styles.th}>제품코드</th>
               <th style={styles.th}>제품명</th>
               <th style={styles.th}>카테고리</th>
               <th style={styles.th}>재고수량</th>
-              <th style={styles.th}>최소수량</th>
               <th style={styles.th}>단가</th>
-              <th style={styles.th}>보관위치</th>
               <th style={styles.th}>공급업체</th>
+              <th style={styles.th}>입고날짜</th>
               <th style={styles.th}>상태</th>
               <th style={styles.th}>작업</th>
             </tr>
@@ -192,7 +193,6 @@ const Inventory = () => {
           <tbody>
             {filteredProducts.map((product) => (
               <tr key={product.id} style={styles.tableRow}>
-                <td style={styles.td}>{product.code}</td>
                 <td style={styles.td}>
                   <div style={styles.productName}>{product.name}</div>
                 </td>
@@ -203,22 +203,23 @@ const Inventory = () => {
                   <span
                     style={{
                       ...styles.quantityBadge,
-                      color: product.quantity <= product.minQuantity ? '#F44336' : '#4CAF50',
+                      color: product.quantity <= (product.minQuantity || 10) ? '#F44336' : '#4CAF50',
                     }}
                   >
                     {formatNumber(product.quantity)}
                   </span>
                 </td>
-                <td style={styles.td}>{formatNumber(product.minQuantity)}</td>
                 <td style={styles.td}>{formatCurrency(product.price)}</td>
-                <td style={styles.td}>{product.location}</td>
                 <td style={styles.td}>{product.supplier}</td>
+                <td style={styles.td}>
+                  {product.date ? formatDate(product.date) : '-'}
+                </td>
                 <td style={styles.td}>
                   {product.quantity === 0 ? (
                     <span style={{ ...styles.statusBadge, backgroundColor: '#F44336' }}>
                       품절
                     </span>
-                  ) : product.quantity <= product.minQuantity ? (
+                  ) : product.quantity <= (product.minQuantity || 10) ? (
                     <span style={{ ...styles.statusBadge, backgroundColor: '#FF9800' }}>
                       부족
                     </span>
@@ -335,6 +336,16 @@ const Inventory = () => {
                     onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
                     style={styles.input}
                     placeholder="공급업체명"
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>등록 날짜 *</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    style={styles.input}
+                    required
                   />
                 </div>
               </div>
