@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FaBox, FaChartBar, FaHistory, FaCog, FaWarehouse } from 'react-icons/fa';
+import { FaBox, FaChartBar, FaHistory, FaCog, FaWarehouse, FaMoneyBillWave, FaFileInvoice, FaFileAlt, FaShoppingCart, FaUsers, FaClipboardList } from 'react-icons/fa';
 
 const Navbar = () => {
   const location = useLocation();
@@ -8,6 +8,9 @@ const Navbar = () => {
   const navItems = [
     { path: '/', icon: <FaWarehouse />, label: '대시보드' },
     { path: '/inventory', icon: <FaBox />, label: '재고 관리' },
+    { path: '/sales', icon: <FaShoppingCart />, label: '판매 관리' },
+    { path: '/quotes', icon: <FaFileAlt />, label: '견적 현황' },
+    { path: '/monthly-closing', icon: <FaFileInvoice />, label: '월별 마감' },
     { path: '/transactions', icon: <FaHistory />, label: '입출고 내역' },
     { path: '/reports', icon: <FaChartBar />, label: '리포트' },
     { path: '/settings', icon: <FaCog />, label: '설정' },
@@ -23,7 +26,7 @@ const Navbar = () => {
               alt="새론 로고" 
               style={styles.logo}
             />
-            <h1 style={styles.brandText}>(주)새론 재고관리</h1>
+            <h1 style={styles.brandText}>(주)새론 통합관리 시스템</h1>
           </div>
         </Link>
         <div style={styles.menu}>
@@ -51,7 +54,6 @@ const styles = {
   nav: {
     backgroundColor: '#ffffff',
     color: '#333',
-    padding: '0',
     boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
     borderBottom: '3px solid #7AB547',
   },
@@ -59,9 +61,10 @@ const styles = {
     maxWidth: '1400px',
     margin: '0 auto',
     display: 'flex',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    padding: '0 20px',
+    padding: '12px 24px',
+    gap: '180px',
   },
   brandLink: {
     textDecoration: 'none',
@@ -71,7 +74,6 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
-    padding: '12px 0',
   },
   logo: {
     height: '50px',
@@ -87,29 +89,33 @@ const styles = {
     fontWeight: 'bold',
     margin: 0,
     color: '#2C5AA0',
+    whiteSpace: 'nowrap',
   },
   menu: {
     display: 'flex',
     gap: '4px',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   menuItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    padding: '16px 20px',
+    gap: '6px',
+    padding: '10px 14px',
     color: '#555',
     textDecoration: 'none',
     transition: 'all 0.3s',
     borderRadius: '8px',
     fontWeight: '500',
+    whiteSpace: 'nowrap',
+    fontSize: '14px',
   },
   menuItemActive: {
-    backgroundColor: '#F0F7FF',
-    color: '#2C5AA0',
-    borderBottom: '3px solid #2C5AA0',
+    backgroundColor: '#2C5AA0',
+    color: '#fff',
   },
   menuIcon: {
-    fontSize: '18px',
+    fontSize: '16px',
   },
 };
 

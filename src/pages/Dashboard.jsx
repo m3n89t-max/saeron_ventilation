@@ -1,13 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { FaBox, FaPlus, FaArrowUp, FaArrowDown, FaDollarSign, FaCalendarAlt } from 'react-icons/fa';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { FaBox, FaPlus, FaArrowUp, FaArrowDown, FaDollarSign, FaFileInvoice, FaMoneyBillWave, FaShoppingCart } from 'react-icons/fa';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 import useInventoryStore from '../store/inventoryStore';
 import StatsCard from '../components/StatsCard';
-import MonthlyCalendar from '../components/MonthlyCalendar';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 
 const Dashboard = () => {
-  const { products, transactions, getTotalValue, addProduct, categories } = useInventoryStore();
+  const { products, transactions, sales, getTotalValue, getTotalSales, addProduct, categories, getQuoteStats } = useInventoryStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -15,6 +14,7 @@ const Dashboard = () => {
     quantity: 0,
     price: 0,
     supplier: '',
+    date: new Date().toISOString().split('T')[0], // 오늘 날짜를 기본값으로
   });
 
   const stats = useMemo(() => {
@@ -28,14 +28,32 @@ const Dashboard = () => {
     const inCount = last7DaysTransactions.filter((t) => t.type === 'in').length;
     const outCount = last7DaysTransactions.filter((t) => t.type === 'out').length;
 
+    // 판매 통계
+    const totalSales = getTotalSales();
+    const totalSalesCount = sales.length;
+    
+    // 오늘 판매
+    const today = new Date().toISOString().split('T')[0];
+    const todaySales = sales.filter((s) => s.date.split('T')[0] === today);
+    const todaySalesAmount = todaySales.reduce((sum, s) => sum + s.totalPrice, 0);
+    const todaySalesCount = todaySales.length;
+
+    // 견적 통계
+    const quoteStats = getQuoteStats();
+
     return {
       totalProducts,
       totalQuantity,
       totalValue,
       inCount,
       outCount,
+      totalSales,
+      totalSalesCount,
+      todaySalesAmount,
+      todaySalesCount,
+      quoteStats,
     };
-  }, [products, transactions, getTotalValue]);
+  }, [products, transactions, sales, getTotalValue, getTotalSales, getQuoteStats]);
 
   const categoryData = useMemo(() => {
     const categoryMap = {};
@@ -48,6 +66,58 @@ const Dashboard = () => {
     });
     return Object.values(categoryMap);
   }, [products]);
+
+  // 월별 매출 데이터 (최근 6개월)
+  const monthlySalesData = useMemo(() => {
+    const monthMap = {};
+    const now = new Date();
+    
+    // 최근 6개월 초기화
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthMap[monthKey] = {
+        month: `${date.getMonth() + 1}월`,
+        sales: 0,
+        count: 0,
+      };
+    }
+    
+    // 판매 데이터 집계
+    sales.forEach((sale) => {
+      const date = new Date(sale.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (monthMap[monthKey]) {
+        monthMap[monthKey].sales += sale.totalPrice;
+        monthMap[monthKey].count += 1;
+      }
+    });
+    
+    return Object.values(monthMap);
+  }, [sales]);
+
+  // 최근 판매 현황 (카테고리별)
+  const salesByCategory = useMemo(() => {
+    const categoryMap = {};
+    
+    sales.forEach((sale) => {
+      const product = products.find(p => p.id === sale.productId);
+      if (product) {
+        const category = product.category;
+        if (!categoryMap[category]) {
+          categoryMap[category] = {
+            category,
+            sales: 0,
+            count: 0,
+          };
+        }
+        categoryMap[category].sales += sale.totalPrice;
+        categoryMap[category].count += sale.quantity;
+      }
+    });
+    
+    return Object.values(categoryMap);
+  }, [sales, products]);
 
   const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#F44336', '#9C27B0'];
 
@@ -68,6 +138,7 @@ const Dashboard = () => {
       quantity: 0,
       price: 0,
       supplier: '',
+      date: new Date().toISOString().split('T')[0],
     });
   };
 
@@ -103,23 +174,120 @@ const Dashboard = () => {
           color="#9C27B0"
           subtitle="원"
         />
+        <StatsCard
+          icon={<FaMoneyBillWave />}
+          title="총 판매액"
+          value={formatCurrency(stats.totalSales).replace('₩', '')}
+          color="#4CAF50"
+          subtitle={`${formatNumber(stats.totalSalesCount)}건`}
+        />
+        <StatsCard
+          icon={<FaShoppingCart />}
+          title="오늘 판매액"
+          value={formatCurrency(stats.todaySalesAmount).replace('₩', '')}
+          color="#FF9800"
+          subtitle={`${formatNumber(stats.todaySalesCount)}건`}
+        />
+        <StatsCard
+          icon={<FaFileInvoice />}
+          title="견적 현황"
+          value={`${stats.quoteStats.pending}건`}
+          color="#2196F3"
+          subtitle={`대기중 / 총 ${stats.quoteStats.total}건`}
+        />
       </div>
 
-      <div style={styles.calendarSection}>
-        <MonthlyCalendar transactions={transactions} />
+      {/* 견적 상세 현황 */}
+      <div style={styles.card}>
+        <h3 style={styles.cardTitle}>
+          <FaFileInvoice style={{ marginRight: '8px', color: '#2196F3' }} />
+          견적 상세 현황
+        </h3>
+        <div style={styles.quoteStatsGrid}>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>대기중</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.pending}건</div>
+            <div style={styles.quoteStatAmount}>
+              {formatCurrency(stats.quoteStats.pendingAmount)}
+            </div>
+          </div>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>승인</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.approved}건</div>
+            <div style={styles.quoteStatAmount}>
+              {formatCurrency(stats.quoteStats.approvedAmount)}
+            </div>
+          </div>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>반려</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.rejected}건</div>
+            <div style={styles.quoteStatAmount}>-</div>
+          </div>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>전체</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.total}건</div>
+            <div style={styles.quoteStatAmount}>
+              {formatCurrency(stats.quoteStats.pendingAmount + stats.quoteStats.approvedAmount)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 월별 매출 현황 */}
+      <div style={styles.card}>
+        <h3 style={styles.cardTitle}>
+          <FaMoneyBillWave style={{ marginRight: '8px', color: '#4CAF50' }} />
+          월별 매출 현황 (최근 6개월)
+        </h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={monthlySalesData}>
+            <defs>
+              <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#4CAF50" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#4CAF50" stopOpacity={0.1}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} />
+            <Tooltip 
+              formatter={(value) => [formatCurrency(value), '매출액']}
+              labelFormatter={(label) => label}
+            />
+            <Legend />
+            <Area 
+              type="monotone" 
+              dataKey="sales" 
+              stroke="#4CAF50" 
+              fillOpacity={1} 
+              fill="url(#colorSales)" 
+              name="매출액"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
       <div style={styles.gridRow}>
+        {/* 카테고리별 판매 현황 */}
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>카테고리별 재고 수량</h3>
+          <h3 style={styles.cardTitle}>
+            <FaShoppingCart style={{ marginRight: '8px', color: '#2196F3' }} />
+            카테고리별 판매 현황
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={categoryData}>
+            <BarChart data={salesByCategory}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="category" />
-              <YAxis />
-              <Tooltip />
+              <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} />
+              <Tooltip 
+                formatter={(value, name) => [
+                  name === 'sales' ? formatCurrency(value) : formatNumber(value),
+                  name === 'sales' ? '판매액' : '판매수량'
+                ]}
+              />
               <Legend />
-              <Bar dataKey="count" fill="#4CAF50" name="수량" />
+              <Bar dataKey="sales" fill="#4CAF50" name="판매액" />
+              <Bar dataKey="count" fill="#2196F3" name="판매수량" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -236,6 +404,16 @@ const Dashboard = () => {
                     placeholder="공급업체명"
                   />
                 </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>등록 날짜 *</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    style={styles.input}
+                    required
+                  />
+                </div>
               </div>
               <div style={styles.modalActions}>
                 <button type="submit" style={styles.submitButton}>
@@ -300,13 +478,11 @@ const styles = {
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
     gap: '20px',
     marginBottom: '24px',
   },
-  calendarSection: {
-    marginBottom: '24px',
-  },
+
   gridRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
@@ -425,6 +601,34 @@ const styles = {
     fontWeight: 'bold',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+  },
+  quoteStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '20px',
+    marginTop: '16px',
+  },
+  quoteStatItem: {
+    backgroundColor: '#f9f9f9',
+    padding: '20px',
+    borderRadius: '8px',
+    textAlign: 'center',
+  },
+  quoteStatLabel: {
+    fontSize: '14px',
+    color: '#666',
+    marginBottom: '8px',
+  },
+  quoteStatValue: {
+    fontSize: '28px',
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: '4px',
+  },
+  quoteStatAmount: {
+    fontSize: '14px',
+    color: '#2196F3',
+    fontWeight: 'bold',
   },
 };
 
