@@ -93,8 +93,20 @@ const Quotes = () => {
     calculateTotal(newProducts);
   };
 
-  // 제품 선택
+  // 제품명 변경
+  const handleProductNameChange = (index, name) => {
+    const newProducts = [...quoteFormData.products];
+    newProducts[index].productName = name;
+    setQuoteFormData({
+      ...quoteFormData,
+      products: newProducts,
+    });
+  };
+
+  // 제품 선택 (옵션)
   const handleProductSelect = (index, productId) => {
+    if (!productId) return;
+    
     const product = products.find((p) => p.id === parseInt(productId));
     if (product) {
       const newProducts = [...quoteFormData.products];
@@ -211,10 +223,10 @@ const Quotes = () => {
   const handleQuoteSubmit = (e) => {
     e.preventDefault();
     
-    // 제품이 선택되었는지 확인
-    const hasValidProducts = quoteFormData.products.some(p => p.productId !== null);
+    // 제품명이 입력되었는지 확인
+    const hasValidProducts = quoteFormData.products.some(p => p.productName.trim() !== '');
     if (!hasValidProducts) {
-      alert('최소 1개 이상의 제품을 선택해주세요.');
+      alert('최소 1개 이상의 제품을 입력해주세요.');
       return;
     }
 
@@ -593,14 +605,27 @@ const Quotes = () => {
                 <div key={index} style={styles.productRow}>
                   <div style={styles.productGrid}>
                     <div style={styles.formGroup}>
-                      <label style={styles.label}>제품 선택 *</label>
-                      <select
-                        value={product.productId || ''}
-                        onChange={(e) => handleProductSelect(index, e.target.value)}
+                      <label style={styles.label}>제품명 *</label>
+                      <input
+                        type="text"
+                        value={product.productName}
+                        onChange={(e) => handleProductNameChange(index, e.target.value)}
                         style={styles.input}
                         required
+                        placeholder="제품명을 직접 입력하세요"
+                        list={`product-suggestions-${index}`}
+                      />
+                      <datalist id={`product-suggestions-${index}`}>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.name} />
+                        ))}
+                      </datalist>
+                      <select
+                        value=""
+                        onChange={(e) => handleProductSelect(index, e.target.value)}
+                        style={{...styles.input, marginTop: '8px', fontSize: '13px', color: '#666'}}
                       >
-                        <option value="">제품을 선택하세요</option>
+                        <option value="">또는 등록된 제품에서 선택</option>
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name} - {formatCurrency(p.price)}
