@@ -29,8 +29,6 @@ const Navbar = () => {
             <h1 style={styles.brandText}>(주)새론 통합관리 시스템</h1>
           </div>
         </Link>
-      </div>
-      <div style={styles.menuContainer}>
         <div style={styles.menu}>
           {navItems.map((item) => (
             <Link
@@ -60,17 +58,18 @@ const styles = {
     borderBottom: '3px solid #7AB547',
   },
   container: {
-    maxWidth: '1400px',
+    maxWidth: '1600px',
     margin: '0 auto',
     display: 'flex',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px 20px',
-    borderBottom: '1px solid #e0e0e0',
+    padding: '12px 30px',
+    gap: '40px',
   },
   brandLink: {
     textDecoration: 'none',
     color: 'inherit',
+    flex: '0 0 auto',
   },
   brand: {
     display: 'flex',
@@ -91,39 +90,35 @@ const styles = {
     fontWeight: 'bold',
     margin: 0,
     color: '#2C5AA0',
-  },
-  menuContainer: {
-    backgroundColor: '#f8f9fa',
-    borderBottom: '2px solid #e0e0e0',
+    whiteSpace: 'nowrap',
   },
   menu: {
-    maxWidth: '1400px',
-    margin: '0 auto',
     display: 'flex',
-    gap: '4px',
-    padding: '8px 20px',
-    overflowX: 'auto',
+    gap: '8px',
+    alignItems: 'center',
+    flex: '1 1 auto',
+    justifyContent: 'flex-end',
     flexWrap: 'wrap',
-    justifyContent: 'center',
   },
   menuItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    padding: '12px 16px',
+    gap: '6px',
+    padding: '10px 14px',
     color: '#555',
     textDecoration: 'none',
     transition: 'all 0.3s',
     borderRadius: '8px',
     fontWeight: '500',
     whiteSpace: 'nowrap',
+    fontSize: '14px',
   },
   menuItemActive: {
     backgroundColor: '#2C5AA0',
     color: '#fff',
   },
   menuIcon: {
-    fontSize: '18px',
+    fontSize: '16px',
   },
 };
 
