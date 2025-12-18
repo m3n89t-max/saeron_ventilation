@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { FaBox, FaPlus, FaArrowUp, FaArrowDown, FaDollarSign, FaCalendarAlt, FaMoneyBillWave, FaShoppingCart } from 'react-icons/fa';
+import { FaBox, FaPlus, FaArrowUp, FaArrowDown, FaDollarSign, FaFileInvoice, FaMoneyBillWave, FaShoppingCart } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 import useInventoryStore from '../store/inventoryStore';
 import StatsCard from '../components/StatsCard';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 
 const Dashboard = () => {
-  const { products, transactions, sales, getTotalValue, getTotalSales, addProduct, categories } = useInventoryStore();
+  const { products, transactions, sales, getTotalValue, getTotalSales, addProduct, categories, getQuoteStats } = useInventoryStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -38,6 +38,9 @@ const Dashboard = () => {
     const todaySalesAmount = todaySales.reduce((sum, s) => sum + s.totalPrice, 0);
     const todaySalesCount = todaySales.length;
 
+    // 견적 통계
+    const quoteStats = getQuoteStats();
+
     return {
       totalProducts,
       totalQuantity,
@@ -48,8 +51,9 @@ const Dashboard = () => {
       totalSalesCount,
       todaySalesAmount,
       todaySalesCount,
+      quoteStats,
     };
-  }, [products, transactions, sales, getTotalValue, getTotalSales]);
+  }, [products, transactions, sales, getTotalValue, getTotalSales, getQuoteStats]);
 
   const categoryData = useMemo(() => {
     const categoryMap = {};
@@ -184,6 +188,49 @@ const Dashboard = () => {
           color="#FF9800"
           subtitle={`${formatNumber(stats.todaySalesCount)}건`}
         />
+        <StatsCard
+          icon={<FaFileInvoice />}
+          title="견적 현황"
+          value={`${stats.quoteStats.pending}건`}
+          color="#2196F3"
+          subtitle={`대기중 / 총 ${stats.quoteStats.total}건`}
+        />
+      </div>
+
+      {/* 견적 상세 현황 */}
+      <div style={styles.card}>
+        <h3 style={styles.cardTitle}>
+          <FaFileInvoice style={{ marginRight: '8px', color: '#2196F3' }} />
+          견적 상세 현황
+        </h3>
+        <div style={styles.quoteStatsGrid}>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>대기중</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.pending}건</div>
+            <div style={styles.quoteStatAmount}>
+              {formatCurrency(stats.quoteStats.pendingAmount)}
+            </div>
+          </div>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>승인</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.approved}건</div>
+            <div style={styles.quoteStatAmount}>
+              {formatCurrency(stats.quoteStats.approvedAmount)}
+            </div>
+          </div>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>반려</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.rejected}건</div>
+            <div style={styles.quoteStatAmount}>-</div>
+          </div>
+          <div style={styles.quoteStatItem}>
+            <div style={styles.quoteStatLabel}>전체</div>
+            <div style={styles.quoteStatValue}>{stats.quoteStats.total}건</div>
+            <div style={styles.quoteStatAmount}>
+              {formatCurrency(stats.quoteStats.pendingAmount + stats.quoteStats.approvedAmount)}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 월별 매출 현황 */}
@@ -554,6 +601,34 @@ const styles = {
     fontWeight: 'bold',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+  },
+  quoteStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '20px',
+    marginTop: '16px',
+  },
+  quoteStatItem: {
+    backgroundColor: '#f9f9f9',
+    padding: '20px',
+    borderRadius: '8px',
+    textAlign: 'center',
+  },
+  quoteStatLabel: {
+    fontSize: '14px',
+    color: '#666',
+    marginBottom: '8px',
+  },
+  quoteStatValue: {
+    fontSize: '28px',
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: '4px',
+  },
+  quoteStatAmount: {
+    fontSize: '14px',
+    color: '#2196F3',
+    fontWeight: 'bold',
   },
 };
 

@@ -7,6 +7,9 @@ const Transactions = () => {
   const { transactions, products } = useInventoryStore();
   const [typeFilter, setTypeFilter] = useState('전체');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // 월별 필터
+  const [selectedMonth, setSelectedMonth] = useState('전체');
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((transaction) => {
@@ -17,9 +20,20 @@ const Transactions = () => {
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         transaction.note.toLowerCase().includes(searchTerm.toLowerCase()) ||
         transaction.user.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesType && matchesSearch;
+      
+      // 월별 필터링
+      let matchesMonth = true;
+      if (selectedMonth !== '전체') {
+        const transactionDate = new Date(transaction.date);
+        const [year, month] = selectedMonth.split('-');
+        matchesMonth = 
+          transactionDate.getFullYear() === parseInt(year) &&
+          transactionDate.getMonth() + 1 === parseInt(month);
+      }
+      
+      return matchesType && matchesSearch && matchesMonth;
     });
-  }, [transactions, products, typeFilter, searchTerm]);
+  }, [transactions, products, typeFilter, searchTerm, selectedMonth]);
 
   const stats = useMemo(() => {
     const inTransactions = transactions.filter((t) => t.type === 'in');
@@ -44,6 +58,17 @@ const Transactions = () => {
     const product = products.find((p) => p.id === productId);
     return product ? product.code : 'N/A';
   };
+
+  // 사용 가능한 월 목록 생성
+  const availableMonths = useMemo(() => {
+    const months = new Set();
+    transactions.forEach((t) => {
+      const date = new Date(t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.add(monthKey);
+    });
+    return ['전체', ...Array.from(months).sort().reverse()];
+  }, [transactions]);
 
   const exportToCSV = () => {
     const headers = ['날짜', '구분', '제품코드', '제품명', '수량', '담당자', '비고'];
@@ -112,36 +137,52 @@ const Transactions = () => {
             style={styles.searchInput}
           />
         </div>
-        <div style={styles.typeFilters}>
-          <button
-            onClick={() => setTypeFilter('전체')}
-            style={{
-              ...styles.filterButton,
-              ...(typeFilter === '전체' ? styles.filterButtonActive : {}),
-            }}
-          >
-            전체
-          </button>
-          <button
-            onClick={() => setTypeFilter('in')}
-            style={{
-              ...styles.filterButton,
-              ...(typeFilter === 'in' ? styles.filterButtonActiveIn : {}),
-            }}
-          >
-            <FaArrowUp style={{ marginRight: '6px' }} />
-            입고
-          </button>
-          <button
-            onClick={() => setTypeFilter('out')}
-            style={{
-              ...styles.filterButton,
-              ...(typeFilter === 'out' ? styles.filterButtonActiveOut : {}),
-            }}
-          >
-            <FaArrowDown style={{ marginRight: '6px' }} />
-            출고
-          </button>
+        <div style={styles.filterRow}>
+          <div style={styles.typeFilters}>
+            <button
+              onClick={() => setTypeFilter('전체')}
+              style={{
+                ...styles.filterButton,
+                ...(typeFilter === '전체' ? styles.filterButtonActive : {}),
+              }}
+            >
+              전체
+            </button>
+            <button
+              onClick={() => setTypeFilter('in')}
+              style={{
+                ...styles.filterButton,
+                ...(typeFilter === 'in' ? styles.filterButtonActiveIn : {}),
+              }}
+            >
+              <FaArrowUp style={{ marginRight: '6px' }} />
+              입고
+            </button>
+            <button
+              onClick={() => setTypeFilter('out')}
+              style={{
+                ...styles.filterButton,
+                ...(typeFilter === 'out' ? styles.filterButtonActiveOut : {}),
+              }}
+            >
+              <FaArrowDown style={{ marginRight: '6px' }} />
+              출고
+            </button>
+          </div>
+          <div style={styles.monthFilter}>
+            <label style={styles.monthLabel}>기간:</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={styles.monthSelect}
+            >
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>
+                  {month === '전체' ? '전체 기간' : `${month.split('-')[0]}년 ${month.split('-')[1]}월`}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -306,9 +347,36 @@ const styles = {
     outline: 'none',
     transition: 'border-color 0.2s',
   },
+  filterRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
   typeFilters: {
     display: 'flex',
     gap: '8px',
+  },
+  monthFilter: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  monthLabel: {
+    fontSize: '14px',
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  monthSelect: {
+    padding: '8px 16px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
+    fontSize: '14px',
+    outline: 'none',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    transition: 'border-color 0.2s',
   },
   filterButton: {
     display: 'flex',

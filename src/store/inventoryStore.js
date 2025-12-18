@@ -477,6 +477,23 @@ const useInventoryStore = create(
           return quoteDate >= new Date(startDate) && quoteDate <= new Date(endDate);
         });
       },
+
+      // 견적 통계
+      getQuoteStats: () => {
+        const quotes = get().quotes;
+        const pending = quotes.filter((q) => q.status === 'pending');
+        const approved = quotes.filter((q) => q.status === 'approved' || q.status === 'success');
+        const rejected = quotes.filter((q) => q.status === 'rejected');
+        
+        return {
+          total: quotes.length,
+          pending: pending.length,
+          approved: approved.length,
+          rejected: rejected.length,
+          pendingAmount: pending.reduce((sum, q) => sum + (q.totalAmount || 0), 0),
+          approvedAmount: approved.reduce((sum, q) => sum + (q.totalAmount || 0), 0),
+        };
+      },
     }),
     {
       name: 'saeron-inventory-storage',
