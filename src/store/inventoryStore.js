@@ -99,7 +99,170 @@ const useInventoryStore = create(
       monthlyClosings: [],
 
       // 견적 내역
-      quotes: [],
+      quotes: [
+        {
+          id: 1,
+          customerName: '김철수',
+          customerCompany: '(주)대한건설',
+          customerPhone: '010-1234-5678',
+          customerEmail: 'kim@daehan.com',
+          products: [
+            { 
+              productId: 1, 
+              productName: '산업용 복합환풍기 (300mm)', 
+              quantity: 20, 
+              unitPrice: 450000 
+            },
+            { 
+              productId: 4, 
+              productName: '천장형 복합환풍기 (400mm)', 
+              quantity: 10, 
+              unitPrice: 550000 
+            }
+          ],
+          totalAmount: 14500000,
+          validUntil: '2025-01-31',
+          status: 'pending',
+          isProspect: true,
+          note: '신축 아파트 단지 환기시스템 설치 예정',
+          user: '김영업',
+          createdDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 2,
+          customerName: '이영희',
+          customerCompany: '새론공조시스템',
+          customerPhone: '010-2345-6789',
+          customerEmail: 'lee@saeron.com',
+          products: [
+            { 
+              productId: 3, 
+              productName: '열회수형 환기시스템', 
+              quantity: 5, 
+              unitPrice: 2500000 
+            },
+            { 
+              productId: 7, 
+              productName: '환풍기 제어시스템', 
+              quantity: 5, 
+              unitPrice: 350000 
+            }
+          ],
+          totalAmount: 14250000,
+          validUntil: '2025-01-15',
+          status: 'success',
+          isProspect: false,
+          note: '상업용 빌딩 환기 시스템 구축',
+          user: '박영업',
+          createdDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 3,
+          customerName: '박민수',
+          customerCompany: '(주)환경설비',
+          customerPhone: '010-3456-7890',
+          customerEmail: 'park@hwankyung.com',
+          products: [
+            { 
+              productId: 2, 
+              productName: '벽부형 일반환풍기 (250mm)', 
+              quantity: 50, 
+              unitPrice: 180000 
+            },
+            { 
+              productId: 5, 
+              productName: '창문형 일반환풍기 (200mm)', 
+              quantity: 30, 
+              unitPrice: 120000 
+            }
+          ],
+          totalAmount: 12600000,
+          validUntil: '2025-02-28',
+          status: 'pending',
+          isProspect: true,
+          note: '공장 환기 시설 교체 공사',
+          user: '최영업',
+          createdDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 4,
+          customerName: '정수진',
+          customerCompany: '대성종합건설',
+          customerPhone: '010-4567-8901',
+          customerEmail: 'jung@daesung.com',
+          products: [
+            { 
+              productId: null, 
+              productName: '대형 산업용 환풍기 (500mm)', 
+              quantity: 15, 
+              unitPrice: 850000 
+            },
+            { 
+              productId: null, 
+              productName: '배기덕트 시스템 (특수제작)', 
+              quantity: 1, 
+              unitPrice: 3500000 
+            }
+          ],
+          totalAmount: 16250000,
+          validUntil: '2025-01-20',
+          status: 'pending',
+          isProspect: true,
+          note: '대형 공장 신축 - 특수 규격 환기 시스템',
+          user: '김영업',
+          createdDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 5,
+          customerName: '홍길동',
+          customerCompany: '',
+          customerPhone: '010-5678-9012',
+          customerEmail: '',
+          products: [
+            { 
+              productId: 6, 
+              productName: '덕트형 환기시스템', 
+              quantity: 8, 
+              unitPrice: 1800000 
+            }
+          ],
+          totalAmount: 14400000,
+          validUntil: '2024-12-31',
+          status: 'rejected',
+          isProspect: false,
+          note: '가격 협의 불발',
+          user: '이영업',
+          createdDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 6,
+          customerName: '강미래',
+          customerCompany: '한국공조',
+          customerPhone: '010-6789-0123',
+          customerEmail: 'kang@hankook.com',
+          products: [
+            { 
+              productId: null, 
+              productName: '스마트 환기 제어 시스템', 
+              quantity: 3, 
+              unitPrice: 4200000 
+            },
+            { 
+              productId: 7, 
+              productName: '환풍기 제어시스템', 
+              quantity: 10, 
+              unitPrice: 350000 
+            }
+          ],
+          totalAmount: 16100000,
+          validUntil: '2025-02-15',
+          status: 'success',
+          isProspect: false,
+          note: '스마트 빌딩 환기 시스템 통합 구축',
+          user: '박영업',
+          createdDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
 
       // 거래 내역
       transactions: [
