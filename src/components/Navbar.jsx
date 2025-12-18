@@ -61,10 +61,10 @@ const styles = {
     maxWidth: '1600px',
     margin: '0 auto',
     display: 'flex',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     padding: '12px 30px',
-    gap: '60px',
+    gap: '40px',
   },
   brandLink: {
     textDecoration: 'none',
