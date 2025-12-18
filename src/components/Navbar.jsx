@@ -61,15 +61,14 @@ const styles = {
     maxWidth: '1600px',
     margin: '0 auto',
     display: 'flex',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: '12px 30px',
-    gap: '40px',
+    gap: '60px',
   },
   brandLink: {
     textDecoration: 'none',
     color: 'inherit',
-    flex: '0 0 auto',
   },
   brand: {
     display: 'flex',
@@ -94,10 +93,8 @@ const styles = {
   },
   menu: {
     display: 'flex',
-    gap: '8px',
+    gap: '4px',
     alignItems: 'center',
-    flex: '1 1 auto',
-    justifyContent: 'flex-end',
     flexWrap: 'wrap',
   },
   menuItem: {
