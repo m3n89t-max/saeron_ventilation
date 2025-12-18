@@ -58,12 +58,12 @@ const styles = {
     borderBottom: '3px solid #7AB547',
   },
   container: {
-    maxWidth: '1600px',
+    maxWidth: '1400px',
     margin: '0 auto',
     display: 'flex',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    padding: '12px 30px',
+    padding: '12px 24px',
     gap: '40px',
   },
   brandLink: {
