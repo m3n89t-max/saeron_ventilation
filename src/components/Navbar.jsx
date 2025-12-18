@@ -64,7 +64,7 @@ const styles = {
     justifyContent: 'flex-start',
     alignItems: 'center',
     padding: '12px 24px',
-    gap: '40px',
+    gap: '100px',
   },
   brandLink: {
     textDecoration: 'none',
