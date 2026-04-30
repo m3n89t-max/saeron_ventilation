@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaTimes, FaShoppingCart, FaBoxes, FaFileInvoice } from 'react-icons/fa';
+import React, { useState, useMemo, useRef } from 'react';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaTimes, FaShoppingCart, FaBoxes, FaFileInvoice, FaMoneyBillWave } from 'react-icons/fa';
 import useAppStore from '../store/appStore';
 import StatsCard from '../components/StatsCard';
 import {
@@ -101,6 +101,96 @@ function OrderFormModal({ title, show, onClose, onSubmit, formData, setFormData,
   );
 }
 
+// 수금 처리 전용 모달
+function PaymentModal({ order, isSales, onClose, onConfirm }) {
+  const remaining = order.totalAmount - order.paidAmount;
+  const [addAmount, setAddAmount] = useState('');
+  const [err, setErr] = useState('');
+  const inputRef = useRef(null);
+
+  React.useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const parsed = parseInt((addAmount || '').replace(/[^0-9]/g, ''), 10) || 0;
+  const newTotal = Math.min(order.paidAmount + parsed, order.totalAmount);
+  const newRemaining = order.totalAmount - newTotal;
+
+  const handleFull = () => setAddAmount(String(remaining));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!parsed || parsed <= 0) return setErr('수금액을 입력하세요.');
+    onConfirm(newTotal);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
+          <h3 style={{ fontSize: '17px', fontWeight: '700', color: '#1A202C', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FaMoneyBillWave color="#3D8B37" /> 수금 처리
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#718096', cursor: 'pointer' }}><FaTimes /></button>
+        </div>
+
+        {/* 현황 요약 */}
+        <div style={{ background: '#F7FAFC', borderRadius: '8px', padding: '14px', marginBottom: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: '#718096', fontWeight: '600', marginBottom: '4px' }}>청구 총액</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#1A202C' }}>{formatCurrency(order.totalAmount)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: '#718096', fontWeight: '600', marginBottom: '4px' }}>기수금</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#3D8B37' }}>{formatCurrency(order.paidAmount)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: '#718096', fontWeight: '600', marginBottom: '4px' }}>미수금</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#C62828' }}>{formatCurrency(remaining)}</div>
+          </div>
+        </div>
+
+        {err && <div style={{ background: '#FFEBEE', color: '#C62828', padding: '10px', borderRadius: '7px', marginBottom: '12px', fontSize: '13px' }}>{err}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '14px' }}>
+            <label className="form-label">이번에 받은 금액 (원) *</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                ref={inputRef}
+                className="form-input"
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={addAmount}
+                onChange={(e) => { setErr(''); setAddAmount(e.target.value.replace(/[^0-9]/g, '')); }}
+                style={{ flex: 1, fontSize: '16px', fontWeight: '700' }}
+              />
+              <button type="button" onClick={handleFull}
+                style={{ padding: '9px 14px', background: '#EBF4FF', color: '#2C5AA0', border: '1.5px solid #2C5AA0', borderRadius: '7px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                전액
+              </button>
+            </div>
+            {parsed > 0 && (
+              <div style={{ marginTop: '10px', padding: '10px 14px', background: newRemaining === 0 ? '#EAF5E9' : '#FFF3E0', borderRadius: '7px', fontSize: '13px' }}>
+                <span style={{ color: '#718096' }}>수금 후 잔액: </span>
+                <strong style={{ color: newRemaining === 0 ? '#3D8B37' : '#E65100', fontSize: '15px' }}>
+                  {newRemaining === 0 ? '완납 ✓' : formatCurrency(newRemaining)}
+                </strong>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" onClick={onClose} style={{ padding: '9px 18px', border: '1.5px solid #E2E8F0', borderRadius: '7px', background: '#fff', color: '#4A5568', fontWeight: '600', cursor: 'pointer' }}>취소</button>
+            <button type="submit" style={{ padding: '9px 18px', background: '#3D8B37', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaMoneyBillWave size={12} /> 수금 확정
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function SalesPurchase() {
   const { salesOrders, purchaseOrders, addSalesOrder, updateSalesOrder, deleteSalesOrder, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, getTotalUnpaidReceivable, getTotalUnpaidPayable } = useAppStore();
 
@@ -112,6 +202,7 @@ export default function SalesPurchase() {
   const [formData, setFormData] = useState(EMPTY_SALE);
   const [err, setErr] = useState('');
   const [detailOrder, setDetailOrder] = useState(null);
+  const [paymentTarget, setPaymentTarget] = useState(null);
 
   const isSales = tab === 'sales';
   const orders = isSales ? salesOrders : purchaseOrders;
@@ -184,14 +275,13 @@ export default function SalesPurchase() {
     }
   };
 
-  const handlePaymentUpdate = (o) => {
-    const totalAmount = o.totalAmount;
-    const paidInput = window.prompt(`수금액 입력 (현재: ${formatCurrency(o.paidAmount)}, 총액: ${formatCurrency(totalAmount)})`, o.paidAmount);
-    if (paidInput === null) return;
-    const paidAmount = Math.min(Math.max(parseInt(paidInput) || 0, 0), totalAmount);
-    const paymentStatus = paidAmount >= totalAmount ? 'paid' : paidAmount > 0 ? 'partial' : 'pending';
+  const handlePaymentConfirm = (newTotalPaid) => {
+    const o = paymentTarget;
+    const paidAmount = newTotalPaid;
+    const paymentStatus = paidAmount >= o.totalAmount ? 'paid' : paidAmount > 0 ? 'partial' : 'pending';
     isSales ? updateSalesOrder(o.id, { paidAmount, paymentStatus }) : updatePurchaseOrder(o.id, { paidAmount, paymentStatus });
     if (detailOrder?.id === o.id) setDetailOrder({ ...detailOrder, paidAmount, paymentStatus });
+    setPaymentTarget(null);
   };
 
   const payOpts = [{ v: '전체', l: '전체' }, { v: 'paid', l: '완납' }, { v: 'partial', l: '부분수금' }, { v: 'pending', l: '미수금' }];
@@ -288,7 +378,7 @@ export default function SalesPurchase() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                        <button onClick={() => handlePaymentUpdate(o)} title="수금 처리" style={{ padding: '5px 8px', background: '#EAF5E9', color: '#3D8B37', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '700' }}>수금</button>
+                        <button onClick={() => setPaymentTarget(o)} title="수금 처리" style={{ padding: '5px 8px', background: '#EAF5E9', color: '#3D8B37', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '700' }}>수금</button>
                         <button onClick={() => openEdit(o)} style={{ padding: '5px 8px', background: '#EBF4FF', color: '#2C5AA0', border: 'none', borderRadius: '5px', cursor: 'pointer' }}><FaEdit size={11} /></button>
                         <button onClick={() => handleDelete(o)} style={{ padding: '5px 8px', background: '#FFEBEE', color: '#C62828', border: 'none', borderRadius: '5px', cursor: 'pointer' }}><FaTrash size={11} /></button>
                       </div>
@@ -358,7 +448,9 @@ export default function SalesPurchase() {
             {detailOrder.note && <div style={{ background: '#FFF8E1', padding: '10px 14px', borderRadius: '7px', fontSize: '13px', color: '#4A5568', marginTop: '12px' }}><strong>비고:</strong> {detailOrder.note}</div>}
             {detailOrder.paymentStatus !== 'paid' && (
               <div className="modal-actions">
-                <button onClick={() => handlePaymentUpdate(detailOrder)} style={{ padding: '9px 18px', background: '#3D8B37', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer' }}>수금 처리</button>
+                <button onClick={() => { setDetailOrder(null); setPaymentTarget(detailOrder); }} style={{ padding: '9px 18px', background: '#3D8B37', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FaMoneyBillWave size={12} /> 수금 처리
+                </button>
               </div>
             )}
           </div>
@@ -370,6 +462,16 @@ export default function SalesPurchase() {
         show={showModal} onClose={() => setShowModal(false)} onSubmit={handleSubmit}
         formData={formData} setFormData={setFormData} isError={!!err} errorMsg={err}
       />
+
+      {/* 수금 처리 모달 */}
+      {paymentTarget && (
+        <PaymentModal
+          order={paymentTarget}
+          isSales={isSales}
+          onClose={() => setPaymentTarget(null)}
+          onConfirm={handlePaymentConfirm}
+        />
+      )}
     </div>
   );
 }
