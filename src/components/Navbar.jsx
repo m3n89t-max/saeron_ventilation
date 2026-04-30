@@ -1,121 +1,174 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FaBox, FaChartBar, FaHistory, FaCog, FaWarehouse, FaMoneyBillWave, FaFileInvoice, FaFileAlt, FaShoppingCart, FaUsers, FaClipboardList } from 'react-icons/fa';
+import {
+  FaTachometerAlt, FaBoxes, FaFileAlt, FaExchangeAlt,
+  FaWallet, FaHistory, FaChartPie, FaCog, FaBars, FaTimes
+} from 'react-icons/fa';
+
+const NAV_ITEMS = [
+  { path: '/',               icon: FaTachometerAlt, label: '대시보드' },
+  { path: '/inventory',      icon: FaBoxes,         label: '재고관리' },
+  { path: '/quotes',         icon: FaFileAlt,       label: '견적현황' },
+  { path: '/sales-purchase', icon: FaExchangeAlt,   label: '매입매출' },
+  { path: '/finance',        icon: FaWallet,        label: '수입지출' },
+  { path: '/transactions',   icon: FaHistory,       label: '입출고내역' },
+  { path: '/reports',        icon: FaChartPie,      label: '리포트' },
+  { path: '/settings',       icon: FaCog,           label: '설정' },
+];
 
 const Navbar = () => {
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems = [
-    { path: '/', icon: <FaWarehouse />, label: '대시보드' },
-    { path: '/inventory', icon: <FaBox />, label: '재고 관리' },
-    { path: '/sales', icon: <FaShoppingCart />, label: '판매 관리' },
-    { path: '/quotes', icon: <FaFileAlt />, label: '견적 현황' },
-    { path: '/monthly-closing', icon: <FaFileInvoice />, label: '월별 마감' },
-    { path: '/transactions', icon: <FaHistory />, label: '입출고 내역' },
-    { path: '/reports', icon: <FaChartBar />, label: '리포트' },
-    { path: '/settings', icon: <FaCog />, label: '설정' },
-  ];
+  const isActive = (path) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
   return (
-    <nav style={styles.nav}>
-      <div style={styles.container}>
-        <Link to="/" style={styles.brandLink}>
-          <div style={styles.brand}>
-            <img 
-              src="/saeron-logo.png" 
-              alt="새론 로고" 
-              style={styles.logo}
-            />
-            <h1 style={styles.brandText}>(주)새론 통합관리 시스템</h1>
+    <>
+      <nav style={S.nav}>
+        <div style={S.inner}>
+          {/* Brand */}
+          <Link to="/" style={S.brand}>
+            <img src="/saeron-logo.png" alt="새론" style={S.logo} />
+            <div>
+              <div style={S.brandName}>(주)새론 환기시스템</div>
+              <div style={S.brandSub}>통합관리시스템</div>
+            </div>
+          </Link>
+
+          {/* Desktop menu */}
+          <div style={S.menu}>
+            {NAV_ITEMS.map(({ path, icon: Icon, label }) => (
+              <Link
+                key={path}
+                to={path}
+                className={isActive(path) ? 'nav-active' : 'nav-link'}
+                style={S.navItem}
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+              </Link>
+            ))}
           </div>
-        </Link>
-        <div style={styles.menu}>
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={location.pathname === item.path ? 'nav-item-active' : 'nav-item'}
-              style={{
-                ...styles.menuItem,
-                ...(location.pathname === item.path ? styles.menuItemActive : {}),
-              }}
-            >
-              <span style={styles.menuIcon}>{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
+
+          {/* Mobile toggle */}
+          <button style={S.mobileBtn} onClick={() => setMobileOpen(!mobileOpen)}>
+            {mobileOpen ? <FaTimes /> : <FaBars />}
+          </button>
         </div>
-      </div>
-    </nav>
+
+        {/* Mobile dropdown */}
+        {mobileOpen && (
+          <div style={S.mobileMenu}>
+            {NAV_ITEMS.map(({ path, icon: Icon, label }) => (
+              <Link
+                key={path}
+                to={path}
+                style={{ ...S.mobileItem, ...(isActive(path) ? S.mobileItemActive : {}) }}
+                onClick={() => setMobileOpen(false)}
+              >
+                <Icon size={16} />
+                <span>{label}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </nav>
+    </>
   );
 };
 
-const styles = {
+const S = {
   nav: {
-    backgroundColor: '#ffffff',
-    color: '#333',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-    borderBottom: '3px solid #7AB547',
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    backgroundColor: '#fff',
+    borderBottom: '3px solid #2C5AA0',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
   },
-  container: {
-    maxWidth: '1400px',
+  inner: {
+    maxWidth: '1440px',
     margin: '0 auto',
+    padding: '0 24px',
+    height: '65px',
     display: 'flex',
-    justifyContent: 'flex-start',
     alignItems: 'center',
-    padding: '12px 24px',
-    gap: '180px',
-  },
-  brandLink: {
-    textDecoration: 'none',
-    color: 'inherit',
+    gap: '32px',
   },
   brand: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
+    gap: '12px',
+    textDecoration: 'none',
+    flexShrink: 0,
   },
   logo: {
-    height: '50px',
+    height: '44px',
     width: 'auto',
     objectFit: 'contain',
   },
-  brandIcon: {
-    fontSize: '28px',
-    color: '#7AB547',
-  },
-  brandText: {
-    fontSize: '22px',
-    fontWeight: 'bold',
-    margin: 0,
+  brandName: {
+    fontSize: '16px',
+    fontWeight: '800',
     color: '#2C5AA0',
-    whiteSpace: 'nowrap',
+    lineHeight: '1.2',
+  },
+  brandSub: {
+    fontSize: '11px',
+    color: '#718096',
+    fontWeight: '500',
   },
   menu: {
     display: 'flex',
-    gap: '4px',
+    gap: '2px',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    flex: 1,
+    flexWrap: 'nowrap',
+    overflowX: 'auto',
   },
-  menuItem: {
+  navItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
-    padding: '10px 14px',
-    color: '#555',
+    gap: '5px',
+    padding: '7px 12px',
+    borderRadius: '7px',
+    fontSize: '13px',
+    fontWeight: '600',
     textDecoration: 'none',
-    transition: 'all 0.3s',
-    borderRadius: '8px',
-    fontWeight: '500',
     whiteSpace: 'nowrap',
+    color: '#4A5568',
+    transition: 'all 0.15s',
+  },
+  mobileBtn: {
+    display: 'none',
+    border: 'none',
+    background: 'none',
+    fontSize: '20px',
+    color: '#2C5AA0',
+    cursor: 'pointer',
+    padding: '8px',
+  },
+  mobileMenu: {
+    display: 'flex',
+    flexDirection: 'column',
+    borderTop: '1px solid #E2E8F0',
+    padding: '8px 0',
+    backgroundColor: '#fff',
+  },
+  mobileItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '12px 24px',
     fontSize: '14px',
+    fontWeight: '600',
+    color: '#4A5568',
+    textDecoration: 'none',
   },
-  menuItemActive: {
-    backgroundColor: '#2C5AA0',
-    color: '#fff',
-  },
-  menuIcon: {
-    fontSize: '16px',
+  mobileItemActive: {
+    backgroundColor: '#EBF4FF',
+    color: '#2C5AA0',
   },
 };
 

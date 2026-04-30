@@ -1,61 +1,36 @@
 import React from 'react';
 
-const StatsCard = ({ icon, title, value, color, subtitle }) => {
+const StatsCard = ({ icon, title, value, sub, color = '#2C5AA0', bgColor, onClick }) => {
+  const bg = bgColor || color + '18';
   return (
-    <div style={styles.card}>
-      <div style={{ ...styles.iconContainer, backgroundColor: color + '20' }}>
-        <div style={{ ...styles.icon, color }}>{icon}</div>
+    <div
+      onClick={onClick}
+      style={{
+        background: '#fff',
+        borderRadius: '10px',
+        padding: '18px 20px',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        borderLeft: `4px solid ${color}`,
+        cursor: onClick ? 'pointer' : 'default',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ fontSize: '11px', fontWeight: '700', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {title}
+        </div>
+        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, fontSize: '15px', flexShrink: 0 }}>
+          {icon}
+        </div>
       </div>
-      <div style={styles.content}>
-        <div style={styles.title}>{title}</div>
-        <div style={styles.value}>{value}</div>
-        {subtitle && <div style={styles.subtitle}>{subtitle}</div>}
+      <div style={{ fontSize: '22px', fontWeight: '800', color: '#1A202C', lineHeight: '1.2', fontVariantNumeric: 'tabular-nums' }}>
+        {value}
       </div>
+      {sub && <div style={{ fontSize: '12px', color: '#718096', fontWeight: '500' }}>{sub}</div>}
     </div>
   );
-};
-
-const styles = {
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    display: 'flex',
-    gap: '20px',
-    alignItems: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-    cursor: 'pointer',
-  },
-  iconContainer: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: {
-    fontSize: '32px',
-  },
-  content: {
-    flex: 1,
-  },
-  title: {
-    fontSize: '14px',
-    color: '#666',
-    marginBottom: '4px',
-  },
-  value: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: '12px',
-    color: '#999',
-    marginTop: '4px',
-  },
 };
 
 export default StatsCard;

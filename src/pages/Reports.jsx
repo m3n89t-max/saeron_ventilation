@@ -1,664 +1,264 @@
 import React, { useMemo } from 'react';
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { FaChartBar, FaChartLine, FaChartPie } from 'react-icons/fa';
-import useInventoryStore from '../store/inventoryStore';
-import { formatCurrency, formatNumber, formatDateShort } from '../utils/formatters';
+import useAppStore from '../store/appStore';
+import StatsCard from '../components/StatsCard';
+import { formatCurrency } from '../utils/formatters';
 
-const Reports = () => {
-  const { products, transactions, sales, quotes } = useInventoryStore();
+const COLORS = ['#2C5AA0', '#3D8B37', '#C62828', '#E65100', '#6A1B9A', '#546E7A', '#0277BD', '#558B2F'];
 
-  const categoryReport = useMemo(() => {
-    const categoryMap = {};
+export default function Reports() {
+  const {
+    products, salesOrders, purchaseOrders, quotes, transactions,
+    expenses, otherIncome, productCategories,
+    getMonthSalesRevenue, getMonthPurchaseCost, getMonthOpExpense,
+  } = useAppStore();
+
+  const now = new Date();
+  const cy = now.getFullYear(), cm = now.getMonth() + 1;
+
+  // 6개월 매출/비용 추이
+  const monthlyData = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(cy, cm - 1 - (5 - i), 1);
+      const y = d.getFullYear(), m = d.getMonth() + 1;
+      const revenue = getMonthSalesRevenue(y, m);
+      const cost = getMonthPurchaseCost(y, m) + getMonthOpExpense(y, m);
+      return { label: `${m}월`, revenue, cost, profit: revenue - cost };
+    });
+  }, [salesOrders, purchaseOrders, expenses, otherIncome]);
+
+  // 카테고리별 재고 현황
+  const categoryStock = useMemo(() => {
+    const map = {};
     products.forEach((p) => {
-      if (!categoryMap[p.category]) {
-        categoryMap[p.category] = {
-          category: p.category,
-          quantity: 0,
-          value: 0,
-          products: 0,
-        };
-      }
-      categoryMap[p.category].quantity += p.quantity;
-      categoryMap[p.category].value += p.quantity * p.price;
-      categoryMap[p.category].products += 1;
+      if (!map[p.category]) map[p.category] = { cat: p.category, count: 0, qty: 0, value: 0 };
+      map[p.category].count += 1;
+      map[p.category].qty += p.quantity;
+      map[p.category].value += p.quantity * p.salePrice;
     });
-    return Object.values(categoryMap);
+    return Object.values(map);
   }, [products]);
 
-  const transactionTrend = useMemo(() => {
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (29 - i));
-      return date;
+  // 거래처별 매출 Top 5
+  const topCustomers = useMemo(() => {
+    const map = {};
+    salesOrders.forEach((o) => {
+      if (!map[o.customerName]) map[o.customerName] = { name: o.customerName, revenue: 0, count: 0 };
+      map[o.customerName].revenue += o.totalAmount;
+      map[o.customerName].count += 1;
     });
+    return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+  }, [salesOrders]);
 
-    return last30Days.map((date) => {
-      const dateStr = date.toISOString().split('T')[0];
-      const dayTransactions = transactions.filter(
-        (t) => t.date.split('T')[0] === dateStr
-      );
-
-      const inQty = dayTransactions
-        .filter((t) => t.type === 'in')
-        .reduce((sum, t) => sum + t.quantity, 0);
-      const outQty = dayTransactions
-        .filter((t) => t.type === 'out')
-        .reduce((sum, t) => sum + t.quantity, 0);
-
-      return {
-        date: formatDateShort(date),
-        입고: inQty,
-        출고: outQty,
-      };
-    });
-  }, [transactions]);
-
-  const topProducts = useMemo(() => {
-    return [...products]
-      .sort((a, b) => b.quantity * b.price - a.quantity * a.price)
-      .slice(0, 10)
-      .map((p) => ({
-        name: p.name,
-        value: p.quantity * p.price,
-        quantity: p.quantity,
-      }));
-  }, [products]);
-
-  // 매출 현황 통계
-  const salesStats = useMemo(() => {
-    const totalSales = sales.reduce((sum, s) => sum + (s.totalPrice || 0), 0);
-    const totalPaid = sales.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
-    const totalUnpaid = totalSales - totalPaid;
-    const salesCount = sales.length;
-
-    // 최근 6개월 매출 추이
-    const monthlySales = Array.from({ length: 6 }, (_, i) => {
-      const date = new Date();
-      date.setMonth(date.getMonth() - (5 - i));
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-
-      const monthSales = sales.filter((s) => {
-        const saleDate = new Date(s.date);
-        return saleDate.getFullYear() === year && saleDate.getMonth() + 1 === month;
-      });
-
-      const revenue = monthSales.reduce((sum, s) => sum + (s.totalPrice || 0), 0);
-      const paid = monthSales.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
-
-      return {
-        month: `${month}월`,
-        매출액: revenue,
-        수금액: paid,
-        미수금: revenue - paid,
-      };
-    });
-
-    // 카테고리별 판매 현황
-    const categorySales = {};
-    sales.forEach((sale) => {
-      const product = products.find((p) => p.id === sale.productId);
-      if (product) {
-        const category = product.category;
-        if (!categorySales[category]) {
-          categorySales[category] = {
-            category,
-            sales: 0,
-            quantity: 0,
-            count: 0,
-          };
-        }
-        categorySales[category].sales += sale.totalPrice || 0;
-        categorySales[category].quantity += sale.quantity || 0;
-        categorySales[category].count += 1;
-      }
-    });
-
-    // 판매 상위 제품
-    const productSalesMap = {};
-    sales.forEach((sale) => {
-      if (!productSalesMap[sale.productId]) {
-        productSalesMap[sale.productId] = {
-          name: sale.productName,
-          sales: 0,
-          quantity: 0,
-        };
-      }
-      productSalesMap[sale.productId].sales += sale.totalPrice || 0;
-      productSalesMap[sale.productId].quantity += sale.quantity || 0;
-    });
-
-    const topSalesProducts = Object.values(productSalesMap)
-      .sort((a, b) => b.sales - a.sales)
-      .slice(0, 10);
-
-    return {
-      totalSales,
-      totalPaid,
-      totalUnpaid,
-      salesCount,
-      monthlySales,
-      categorySales: Object.values(categorySales),
-      topSalesProducts,
-    };
-  }, [sales, products]);
-
-  // 견적 현황 통계
-  const quoteStats = useMemo(() => {
-    const totalQuotes = quotes.reduce((sum, q) => sum + (q.totalAmount || 0), 0);
-    const successQuotes = quotes.filter((q) => q.status === 'success');
-    const pendingQuotes = quotes.filter((q) => q.status === 'pending');
-    const rejectedQuotes = quotes.filter((q) => q.status === 'rejected');
-    const prospectQuotes = quotes.filter((q) => q.isProspect);
-
-    const successTotal = successQuotes.reduce((sum, q) => sum + (q.totalAmount || 0), 0);
-    const successRate = quotes.length > 0 
-      ? ((successQuotes.length / quotes.length) * 100).toFixed(1)
-      : 0;
-
-    return {
-      totalQuotes,
-      successTotal,
-      successRate,
-      successCount: successQuotes.length,
-      pendingCount: pendingQuotes.length,
-      rejectedCount: rejectedQuotes.length,
-      prospectCount: prospectQuotes.length,
-      totalCount: quotes.length,
-    };
+  // 견적 전환 분석
+  const quoteAnalysis = useMemo(() => {
+    const total = quotes.length;
+    const accepted = quotes.filter((q) => q.status === 'accepted').length;
+    const rejected = quotes.filter((q) => q.status === 'rejected').length;
+    const pending = quotes.filter((q) => q.status === 'pending').length;
+    const winRate = total > 0 ? Math.round((accepted / total) * 100) : 0;
+    return [
+      { name: '수주성사', value: accepted },
+      { name: '검토중', value: pending },
+      { name: '거절', value: rejected },
+    ];
   }, [quotes]);
 
-  const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#F44336', '#9C27B0', '#00BCD4'];
+  // 제품별 판매량 Top 5
+  const topProducts = useMemo(() => {
+    const map = {};
+    salesOrders.forEach((o) => {
+      (o.items || []).forEach((item) => {
+        if (!map[item.productName]) map[item.productName] = { name: item.productName, qty: 0, revenue: 0 };
+        map[item.productName].qty += item.quantity || 0;
+        map[item.productName].revenue += item.total || 0;
+      });
+    });
+    return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+  }, [salesOrders]);
+
+  // 지출 카테고리 분포
+  const expenseByCategory = useMemo(() => {
+    const map = {};
+    expenses.forEach((e) => {
+      if (!map[e.category]) map[e.category] = { name: e.category, value: 0 };
+      map[e.category].value += e.amount;
+    });
+    return Object.values(map);
+  }, [expenses]);
+
+  // 전체 KPI
+  const kpi = useMemo(() => {
+    const totalRevenue = salesOrders.reduce((s, o) => s + o.totalAmount, 0);
+    const totalPaid = salesOrders.reduce((s, o) => s + o.paidAmount, 0);
+    const totalPurchase = purchaseOrders.reduce((s, o) => s + o.totalAmount, 0);
+    const totalInventoryValue = products.reduce((s, p) => s + p.quantity * p.salePrice, 0);
+    const winRate = quotes.length > 0 ? Math.round((quotes.filter((q) => q.status === 'accepted').length / quotes.length) * 100) : 0;
+    return { totalRevenue, totalPaid, totalPurchase, totalInventoryValue, winRate };
+  }, [salesOrders, purchaseOrders, products, quotes]);
+
+  const Card = ({ title, children }) => (
+    <div style={{ background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '20px' }}>
+      <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1A202C', marginBottom: '16px' }}>{title}</h3>
+      {children}
+    </div>
+  );
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>
-        <FaChartBar style={{ marginRight: '12px' }} />
-        통계 리포트
-      </h2>
-
-      {/* 매출 및 판매 현황 */}
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>
-            <FaChartLine style={{ marginRight: '8px' }} />
-            매출 및 판매 현황
-          </h3>
-
-          {/* 매출 요약 통계 */}
-          <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>총 매출액</div>
-              <div style={styles.statValue}>{formatCurrency(salesStats.totalSales)}</div>
-              <div style={styles.statSubtext}>{salesStats.salesCount}건</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>수금액</div>
-              <div style={{ ...styles.statValue, color: '#4CAF50' }}>
-                {formatCurrency(salesStats.totalPaid)}
-              </div>
-              <div style={styles.statSubtext}>
-                {salesStats.totalSales > 0 
-                  ? `${((salesStats.totalPaid / salesStats.totalSales) * 100).toFixed(1)}%`
-                  : '0%'}
-              </div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>미수금</div>
-              <div style={{ ...styles.statValue, color: '#F44336' }}>
-                {formatCurrency(salesStats.totalUnpaid)}
-              </div>
-              <div style={styles.statSubtext}>
-                {salesStats.totalSales > 0 
-                  ? `${((salesStats.totalUnpaid / salesStats.totalSales) * 100).toFixed(1)}%`
-                  : '0%'}
-              </div>
-            </div>
-          </div>
-
-          {/* 월별 매출 추이 */}
-          <div style={{ marginTop: '32px' }}>
-            <h4 style={styles.chartSubtitle}>월별 매출 추이 (최근 6개월)</h4>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={salesStats.monthlySales}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="매출액" fill="#2196F3" name="매출액" />
-                <Bar dataKey="수금액" fill="#4CAF50" name="수금액" />
-                <Bar dataKey="미수금" fill="#F44336" name="미수금" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* 카테고리별 판매 현황 */}
-          {salesStats.categorySales.length > 0 && (
-            <div style={{ marginTop: '32px' }}>
-              <h4 style={styles.chartSubtitle}>카테고리별 판매 현황</h4>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={salesStats.categorySales}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                  <Legend />
-                  <Bar dataKey="sales" fill="#FF9800" name="판매액" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* 판매 상위 제품 */}
-          {salesStats.topSalesProducts.length > 0 && (
-            <div style={{ marginTop: '32px' }}>
-              <h4 style={styles.chartSubtitle}>판매 상위 10개 제품</h4>
-              <div style={styles.tableContainer}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr style={styles.tableHeader}>
-                      <th style={styles.th}>순위</th>
-                      <th style={styles.th}>제품명</th>
-                      <th style={styles.th}>판매 수량</th>
-                      <th style={styles.th}>판매액</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {salesStats.topSalesProducts.map((product, index) => (
-                      <tr key={index} style={styles.tableRow}>
-                        <td style={styles.td}>
-                          <div style={styles.topProductRank}>{index + 1}</div>
-                        </td>
-                        <td style={styles.td}>
-                          <div style={styles.productName}>{product.name}</div>
-                        </td>
-                        <td style={styles.td}>{formatNumber(product.quantity)}</td>
-                        <td style={styles.td}>
-                          <span style={{ fontWeight: 'bold', color: '#4CAF50' }}>
-                            {formatCurrency(product.sales)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="page-container">
+      <div className="page-header">
+        <div><h2 className="page-title">리포트 & 분석</h2><p className="page-subtitle">매출, 재고, 견적, 지출 통합 분석</p></div>
       </div>
 
-      {/* 견적 현황 */}
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>
-            <FaChartPie style={{ marginRight: '8px' }} />
-            견적 현황
-          </h3>
-
-          <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>총 견적액</div>
-              <div style={styles.statValue}>{formatCurrency(quoteStats.totalQuotes)}</div>
-              <div style={styles.statSubtext}>{quoteStats.totalCount}건</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>성사 금액</div>
-              <div style={{ ...styles.statValue, color: '#4CAF50' }}>
-                {formatCurrency(quoteStats.successTotal)}
-              </div>
-              <div style={styles.statSubtext}>
-                {quoteStats.successCount}건 (성사율 {quoteStats.successRate}%)
-              </div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>진행 현황</div>
-              <div style={styles.statValue}>
-                <div style={{ fontSize: '18px', display: 'flex', gap: '16px' }}>
-                  <span style={{ color: '#FF9800' }}>
-                    대기 {quoteStats.pendingCount}
-                  </span>
-                  <span style={{ color: '#F44336' }}>
-                    불발 {quoteStats.rejectedCount}
-                  </span>
-                </div>
-              </div>
-              <div style={styles.statSubtext}>
-                가망고객 {quoteStats.prospectCount}명
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* 전체 KPI */}
+      <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
+        <StatsCard icon="₩" title="누적 총 매출" value={`₩${(kpi.totalRevenue / 100000000).toFixed(2)}억`} sub={formatCurrency(kpi.totalRevenue)} color="#3D8B37" />
+        <StatsCard icon="₩" title="누적 총 매입" value={`₩${(kpi.totalPurchase / 100000000).toFixed(2)}억`} sub={formatCurrency(kpi.totalPurchase)} color="#C62828" />
+        <StatsCard icon="%" title="견적 수주율" value={`${kpi.winRate}%`} sub={`총 ${quotes.length}건 중 성사`} color="#2C5AA0" />
+        <StatsCard icon="₩" title="현재 재고 총액" value={`₩${(kpi.totalInventoryValue / 10000).toFixed(0)}만`} sub={formatCurrency(kpi.totalInventoryValue)} color="#6A1B9A" />
       </div>
 
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>
-            <FaChartBar style={{ marginRight: '8px' }} />
-            카테고리별 재고 분석
-          </h3>
-          <div style={styles.chartGrid}>
-            <div>
-              <h4 style={styles.chartSubtitle}>재고 수량</h4>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryReport}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="quantity" fill="#4CAF50" name="수량" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div>
-              <h4 style={styles.chartSubtitle}>재고 가치</h4>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryReport}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                  <Legend />
-                  <Bar dataKey="value" fill="#2196F3" name="가치 (원)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+      {/* 매출/비용 추이 */}
+      <Card title="월별 매출 / 비용 / 순이익 추이 (최근 6개월)">
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={monthlyData} barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F0F4F8" />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#718096' }} />
+            <YAxis tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} tick={{ fontSize: 11, fill: '#718096' }} />
+            <Tooltip formatter={(v, name) => [formatCurrency(v), { revenue: '매출', cost: '비용', profit: '순이익' }[name] || name]} labelStyle={{ fontWeight: '700' }} />
+            <Legend formatter={(v) => ({ revenue: '매출', cost: '비용', profit: '순이익' }[v] || v)} />
+            <Bar dataKey="revenue" fill="#3D8B37" name="revenue" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="cost" fill="#C62828" name="cost" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="profit" fill="#2C5AA0" name="profit" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
 
-          <div style={styles.tableContainer}>
-            <h4 style={styles.chartSubtitle}>카테고리별 상세 정보</h4>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.tableHeader}>
-                  <th style={styles.th}>카테고리</th>
-                  <th style={styles.th}>제품 수</th>
-                  <th style={styles.th}>총 수량</th>
-                  <th style={styles.th}>총 가치</th>
+      <div className="two-col">
+        {/* 카테고리별 재고 */}
+        <Card title="카테고리별 재고 현황">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie data={categoryStock} dataKey="value" nameKey="cat" cx="50%" cy="50%" outerRadius={80} label={({ cat, percent }) => `${cat} ${(percent * 100).toFixed(0)}%`} labelLine>
+                {categoryStock.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip formatter={(v) => formatCurrency(v)} />
+            </PieChart>
+          </ResponsiveContainer>
+          <table className="data-table" style={{ marginTop: '12px' }}>
+            <thead><tr><th>카테고리</th><th className="text-right">제품수</th><th className="text-right">수량</th><th className="text-right">재고액</th></tr></thead>
+            <tbody>
+              {categoryStock.map((c, i) => (
+                <tr key={c.cat}>
+                  <td style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: COLORS[i % COLORS.length], display: 'inline-block', flexShrink: 0 }} />
+                    {c.cat}
+                  </td>
+                  <td className="text-right">{c.count}</td>
+                  <td className="text-right">{c.qty.toLocaleString()}</td>
+                  <td className="text-right" style={{ fontWeight: '700' }}>{formatCurrency(c.value)}</td>
                 </tr>
-              </thead>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+
+        {/* 견적 전환 분석 */}
+        <Card title="견적 전환 분석">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie data={quoteAnalysis.filter((q) => q.value > 0)} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                {quoteAnalysis.map((_, i) => <Cell key={i} fill={['#3D8B37', '#E65100', '#C62828'][i % 3]} />)}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px' }}>
+            {quoteAnalysis.map((q, i) => (
+              <div key={q.name} style={{ background: '#F7FAFC', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#718096', fontWeight: '600', marginBottom: '4px' }}>{q.name}</div>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: ['#3D8B37', '#E65100', '#C62828'][i] }}>{q.value}건</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="two-col">
+        {/* 거래처별 매출 Top5 */}
+        <Card title="거래처별 매출 TOP 5">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={topCustomers} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#F0F4F8" />
+              <XAxis type="number" tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} tick={{ fontSize: 11, fill: '#718096' }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#4A5568' }} width={90} />
+              <Tooltip formatter={(v) => formatCurrency(v)} />
+              <Bar dataKey="revenue" fill="#2C5AA0" radius={[0, 3, 3, 0]} name="매출액" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* 제품별 판매 Top5 */}
+        <Card title="제품별 매출 TOP 5">
+          <table className="data-table">
+            <thead><tr><th>순위</th><th>제품명</th><th className="text-right">판매수량</th><th className="text-right">매출액</th></tr></thead>
+            <tbody>
+              {topProducts.length === 0 ? (
+                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '30px', color: '#718096' }}>매출 데이터 없음</td></tr>
+              ) : topProducts.map((p, i) => (
+                <tr key={p.name}>
+                  <td>
+                    <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: i < 3 ? ['#FFD700', '#C0C0C0', '#CD7F32'][i] : '#E2E8F0', color: i < 3 ? '#fff' : '#718096', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800' }}>
+                      {i + 1}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: '13px', fontWeight: '600' }}>{p.name}</td>
+                  <td className="text-right">{p.qty.toLocaleString()}개</td>
+                  <td className="text-right" style={{ fontWeight: '700', color: '#3D8B37' }}>{formatCurrency(p.revenue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </div>
+
+      {/* 지출 분석 */}
+      {expenseByCategory.length > 0 && (
+        <Card title="운영 지출 항목별 분포">
+          <div className="two-col">
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={expenseByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                  {expenseByCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v) => formatCurrency(v)} />
+              </PieChart>
+            </ResponsiveContainer>
+            <table className="data-table">
+              <thead><tr><th>항목</th><th className="text-right">금액</th><th className="text-right">비율</th></tr></thead>
               <tbody>
-                {categoryReport.map((cat, index) => (
-                  <tr key={index} style={styles.tableRow}>
-                    <td style={styles.td}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            backgroundColor: COLORS[index % COLORS.length],
-                          }}
-                        />
-                        {cat.category}
-                      </div>
-                    </td>
-                    <td style={styles.td}>{cat.products}개</td>
-                    <td style={styles.td}>{formatNumber(cat.quantity)}</td>
-                    <td style={styles.td}>{formatCurrency(cat.value)}</td>
-                  </tr>
-                ))}
+                {expenseByCategory.map((e, i) => {
+                  const total = expenseByCategory.reduce((s, x) => s + x.value, 0);
+                  return (
+                    <tr key={e.name}>
+                      <td style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: COLORS[i % COLORS.length], display: 'inline-block' }} />
+                        {e.name}
+                      </td>
+                      <td className="text-right" style={{ fontWeight: '700' }}>{formatCurrency(e.value)}</td>
+                      <td className="text-right" style={{ color: '#718096' }}>{total > 0 ? Math.round((e.value / total) * 100) : 0}%</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
-
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>
-            <FaChartLine style={{ marginRight: '8px' }} />
-            입출고 추이 (최근 30일)
-          </h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={transactionTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="입고"
-                stroke="#4CAF50"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="출고"
-                stroke="#F44336"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>
-            <FaChartPie style={{ marginRight: '8px' }} />
-            재고 가치 상위 10개 제품
-          </h3>
-          <div style={styles.topProductsContainer}>
-            <div style={styles.topProductsChart}>
-              <ResponsiveContainer width="100%" height={400}>
-                <PieChart>
-                  <Pie
-                    data={topProducts}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={120}
-                    label={(entry) => `${entry.name.substring(0, 15)}...`}
-                  >
-                    {topProducts.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={styles.topProductsList}>
-              {topProducts.map((product, index) => (
-                <div key={index} style={styles.topProductItem}>
-                  <div style={styles.topProductRank}>{index + 1}</div>
-                  <div
-                    style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: COLORS[index % COLORS.length],
-                    }}
-                  />
-                  <div style={styles.topProductInfo}>
-                    <div style={styles.topProductName}>{product.name}</div>
-                    <div style={styles.topProductDetails}>
-                      수량: {formatNumber(product.quantity)} | 가치:{' '}
-                      {formatCurrency(product.value)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+        </Card>
+      )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '24px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    marginBottom: '24px',
-    color: '#333',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  section: {
-    marginBottom: '24px',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  cardTitle: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginBottom: '20px',
-    color: '#333',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  chartSubtitle: {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    marginBottom: '12px',
-    color: '#666',
-  },
-  chartGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-    gap: '24px',
-    marginBottom: '24px',
-  },
-  tableContainer: {
-    marginTop: '24px',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  tableHeader: {
-    backgroundColor: '#f5f5f5',
-  },
-  th: {
-    padding: '12px',
-    textAlign: 'left',
-    fontWeight: 'bold',
-    color: '#333',
-    borderBottom: '2px solid #e0e0e0',
-  },
-  tableRow: {
-    transition: 'background-color 0.2s',
-  },
-  td: {
-    padding: '12px',
-    borderBottom: '1px solid #f0f0f0',
-  },
-  topProductsContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-    gap: '24px',
-  },
-  topProductsChart: {
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  topProductsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  topProductItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    transition: 'background-color 0.2s',
-  },
-  topProductRank: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 'bold',
-    fontSize: '14px',
-  },
-  topProductInfo: {
-    flex: 1,
-  },
-  topProductName: {
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: '4px',
-  },
-  topProductDetails: {
-    fontSize: '12px',
-    color: '#666',
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginBottom: '24px',
-  },
-  statCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: '12px',
-    padding: '20px',
-    textAlign: 'center',
-  },
-  statLabel: {
-    fontSize: '14px',
-    color: '#666',
-    marginBottom: '8px',
-    fontWeight: '500',
-  },
-  statValue: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: '4px',
-  },
-  statSubtext: {
-    fontSize: '12px',
-    color: '#999',
-  },
-  productName: {
-    fontWeight: 'bold',
-    color: '#333',
-  },
-};
-
-export default Reports;
+}

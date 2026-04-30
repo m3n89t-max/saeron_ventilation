@@ -1,472 +1,132 @@
 import React, { useState, useMemo } from 'react';
-import { FaArrowUp, FaArrowDown, FaFilter, FaFileExport } from 'react-icons/fa';
-import useInventoryStore from '../store/inventoryStore';
-import { formatDate, formatNumber } from '../utils/formatters';
+import { FaSearch, FaArrowUp, FaArrowDown, FaHistory, FaDownload } from 'react-icons/fa';
+import useAppStore from '../store/appStore';
+import StatsCard from '../components/StatsCard';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
-const Transactions = () => {
-  const { transactions, products } = useInventoryStore();
+export default function Transactions() {
+  const { transactions, products } = useAppStore();
+  const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('전체');
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // 월별 필터
-  const [selectedMonth, setSelectedMonth] = useState('전체');
+  const [catFilter, setCatFilter] = useState('전체');
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((transaction) => {
-      const product = products.find((p) => p.id === transaction.productId);
-      const matchesType = typeFilter === '전체' || transaction.type === typeFilter;
-      const matchesSearch =
-        !product ||
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        transaction.note.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        transaction.user.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // 월별 필터링
-      let matchesMonth = true;
-      if (selectedMonth !== '전체') {
-        const transactionDate = new Date(transaction.date);
-        const [year, month] = selectedMonth.split('-');
-        matchesMonth = 
-          transactionDate.getFullYear() === parseInt(year) &&
-          transactionDate.getMonth() + 1 === parseInt(month);
-      }
-      
-      return matchesType && matchesSearch && matchesMonth;
-    });
-  }, [transactions, products, typeFilter, searchTerm, selectedMonth]);
+  const categories = useMemo(() => {
+    const cats = new Set(products.map((p) => p.category));
+    return ['전체', ...cats];
+  }, [products]);
+
+  const filtered = useMemo(() => {
+    return transactions.filter((t) => {
+      const matchSearch = (t.productName || '').toLowerCase().includes(search.toLowerCase())
+        || (t.note || '').toLowerCase().includes(search.toLowerCase())
+        || (t.reference || '').toLowerCase().includes(search.toLowerCase());
+      const matchType = typeFilter === '전체' || t.type === typeFilter;
+      const product = products.find((p) => p.id === t.productId);
+      const matchCat = catFilter === '전체' || (product && product.category === catFilter);
+      return matchSearch && matchType && matchCat;
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [transactions, search, typeFilter, catFilter, products]);
 
   const stats = useMemo(() => {
-    const inTransactions = transactions.filter((t) => t.type === 'in');
-    const outTransactions = transactions.filter((t) => t.type === 'out');
-    const totalIn = inTransactions.reduce((sum, t) => sum + t.quantity, 0);
-    const totalOut = outTransactions.reduce((sum, t) => sum + t.quantity, 0);
-
-    return {
-      totalIn,
-      totalOut,
-      inCount: inTransactions.length,
-      outCount: outTransactions.length,
-    };
+    const inTx = transactions.filter((t) => t.type === 'in');
+    const outTx = transactions.filter((t) => t.type === 'out');
+    const inVal = inTx.reduce((s, t) => s + (t.quantity * t.unitPrice), 0);
+    const outVal = outTx.reduce((s, t) => s + (t.quantity * t.unitPrice), 0);
+    return { inCount: inTx.length, outCount: outTx.length, inVal, outVal, total: transactions.length };
   }, [transactions]);
 
-  const getProductName = (productId) => {
-    const product = products.find((p) => p.id === productId);
-    return product ? product.name : '삭제된 제품';
-  };
-
-  const getProductCode = (productId) => {
-    const product = products.find((p) => p.id === productId);
-    return product ? product.code : 'N/A';
-  };
-
-  // 사용 가능한 월 목록 생성
-  const availableMonths = useMemo(() => {
-    const months = new Set();
-    transactions.forEach((t) => {
-      const date = new Date(t.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      months.add(monthKey);
+  const handleExport = () => {
+    const rows = [['날짜', '제품명', '구분', '수량', '단가', '금액', '담당자', '비고', '참조번호']];
+    filtered.forEach((t) => {
+      rows.push([formatDate(t.date), t.productName, t.type === 'in' ? '입고' : '출고', t.quantity, t.unitPrice, t.quantity * t.unitPrice, t.user, t.note, t.reference]);
     });
-    return ['전체', ...Array.from(months).sort().reverse()];
-  }, [transactions]);
-
-  const exportToCSV = () => {
-    const headers = ['날짜', '구분', '제품코드', '제품명', '수량', '담당자', '비고'];
-    const rows = filteredTransactions.map((t) => [
-      formatDate(t.date),
-      t.type === 'in' ? '입고' : '출고',
-      getProductCode(t.productId),
-      getProductName(t.productId),
-      t.quantity,
-      t.user,
-      t.note,
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `입출고내역_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `입출고내역_${new Date().toLocaleDateString('ko-KR').replace(/\./g, '').replace(/ /g, '')}.csv`; a.click();
+    URL.revokeObjectURL(url);
   };
+
+  const typeOpts = [{ v: '전체', l: '전체' }, { v: 'in', l: '입고' }, { v: 'out', l: '출고' }];
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={styles.title}>입출고 내역</h2>
-        <button onClick={exportToCSV} style={styles.exportButton}>
-          <FaFileExport style={{ marginRight: '8px' }} />
-          CSV 내보내기
+    <div className="page-container">
+      <div className="page-header">
+        <div><h2 className="page-title">입출고 내역</h2><p className="page-subtitle">제품 입고 및 출고 거래 이력</p></div>
+        <button className="btn-outline" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px' }}>
+          <FaDownload size={12} /> CSV 내보내기
         </button>
       </div>
 
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: '#4CAF5020' }}>
-            <FaArrowUp style={{ color: '#4CAF50', fontSize: '28px' }} />
-          </div>
-          <div style={styles.statContent}>
-            <div style={styles.statLabel}>총 입고</div>
-            <div style={styles.statValue}>{formatNumber(stats.totalIn)}</div>
-            <div style={styles.statSubtext}>{stats.inCount}건</div>
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: '#F4433620' }}>
-            <FaArrowDown style={{ color: '#F44336', fontSize: '28px' }} />
-          </div>
-          <div style={styles.statContent}>
-            <div style={styles.statLabel}>총 출고</div>
-            <div style={styles.statValue}>{formatNumber(stats.totalOut)}</div>
-            <div style={styles.statSubtext}>{stats.outCount}건</div>
-          </div>
-        </div>
+      <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
+        <StatsCard icon={<FaHistory />} title="전체 거래건수" value={`${stats.total}건`} sub="입고 + 출고" color="#2C5AA0" />
+        <StatsCard icon={<FaArrowDown />} title="입고 건수" value={`${stats.inCount}건`} sub={formatCurrency(stats.inVal)} color="#3D8B37" />
+        <StatsCard icon={<FaArrowUp />} title="출고 건수" value={`${stats.outCount}건`} sub={formatCurrency(stats.outVal)} color="#C62828" />
+        <StatsCard icon={<FaHistory />} title="표시 건수" value={`${filtered.length}건`} sub="현재 필터 기준" color="#6A1B9A" />
       </div>
 
-      <div style={styles.filterBar}>
-        <div style={styles.searchBox}>
-          <input
-            type="text"
-            placeholder="제품명, 담당자, 비고로 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
-        </div>
-        <div style={styles.filterRow}>
-          <div style={styles.typeFilters}>
-            <button
-              onClick={() => setTypeFilter('전체')}
-              style={{
-                ...styles.filterButton,
-                ...(typeFilter === '전체' ? styles.filterButtonActive : {}),
-              }}
-            >
-              전체
-            </button>
-            <button
-              onClick={() => setTypeFilter('in')}
-              style={{
-                ...styles.filterButton,
-                ...(typeFilter === 'in' ? styles.filterButtonActiveIn : {}),
-              }}
-            >
-              <FaArrowUp style={{ marginRight: '6px' }} />
-              입고
-            </button>
-            <button
-              onClick={() => setTypeFilter('out')}
-              style={{
-                ...styles.filterButton,
-                ...(typeFilter === 'out' ? styles.filterButtonActiveOut : {}),
-              }}
-            >
-              <FaArrowDown style={{ marginRight: '6px' }} />
-              출고
-            </button>
+      <div style={{ background: '#fff', borderRadius: '10px', padding: '14px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px' }}>
+        <div className="search-bar">
+          <div className="search-input-wrap">
+            <FaSearch />
+            <input className="form-input" placeholder="제품명, 비고, 참조번호 검색..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: '32px' }} />
           </div>
-          <div style={styles.monthFilter}>
-            <label style={styles.monthLabel}>기간:</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              style={styles.monthSelect}
-            >
-              {availableMonths.map((month) => (
-                <option key={month} value={month}>
-                  {month === '전체' ? '전체 기간' : `${month.split('-')[0]}년 ${month.split('-')[1]}월`}
-                </option>
-              ))}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {typeOpts.map((o) => (
+              <button key={o.v} onClick={() => setTypeFilter(o.v)}
+                style={{ padding: '6px 14px', border: '1.5px solid', borderRadius: '20px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', background: typeFilter === o.v ? (o.v === 'in' ? '#3D8B37' : o.v === 'out' ? '#C62828' : '#2C5AA0') : '#fff', color: typeFilter === o.v ? '#fff' : '#4A5568', borderColor: typeFilter === o.v ? (o.v === 'in' ? '#3D8B37' : o.v === 'out' ? '#C62828' : '#2C5AA0') : '#E2E8F0' }}>
+                {o.l}
+              </button>
+            ))}
+            <select className="form-input" value={catFilter} onChange={(e) => setCatFilter(e.target.value)} style={{ minWidth: '100px', fontSize: '12px', padding: '6px 10px' }}>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
       </div>
 
-      <div style={styles.tableContainer}>
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.tableHeader}>
-              <th style={styles.th}>날짜/시간</th>
-              <th style={styles.th}>구분</th>
-              <th style={styles.th}>제품코드</th>
-              <th style={styles.th}>제품명</th>
-              <th style={styles.th}>수량</th>
-              <th style={styles.th}>담당자</th>
-              <th style={styles.th}>비고</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransactions.length === 0 ? (
+      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #E2E8F0' }}>
+          <span style={{ fontSize: '13px', color: '#718096', fontWeight: '600' }}>총 {filtered.length}건</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan="7" style={styles.noData}>
-                  입출고 내역이 없습니다.
-                </td>
+                <th>날짜</th><th>구분</th><th>제품명</th><th className="text-right">수량</th><th className="text-right">단가</th><th className="text-right">금액</th><th>담당자</th><th>비고</th><th>참조번호</th>
               </tr>
-            ) : (
-              filteredTransactions.map((transaction) => (
-                <tr key={transaction.id} style={styles.tableRow}>
-                  <td style={styles.td}>
-                    <div style={styles.dateCell}>{formatDate(transaction.date)}</div>
-                  </td>
-                  <td style={styles.td}>
-                    {transaction.type === 'in' ? (
-                      <span style={{ ...styles.typeBadge, backgroundColor: '#4CAF50' }}>
-                        <FaArrowUp style={{ marginRight: '6px' }} />
-                        입고
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>내역이 없습니다.</td></tr>
+              ) : filtered.map((t) => {
+                const isIn = t.type === 'in';
+                return (
+                  <tr key={t.id}>
+                    <td style={{ fontSize: '12px', color: '#718096', whiteSpace: 'nowrap' }}>{formatDate(t.date)}</td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', background: isIn ? '#EAF5E9' : '#FFEBEE', color: isIn ? '#3D8B37' : '#C62828' }}>
+                        {isIn ? <FaArrowDown size={9} /> : <FaArrowUp size={9} />} {isIn ? '입고' : '출고'}
                       </span>
-                    ) : (
-                      <span style={{ ...styles.typeBadge, backgroundColor: '#F44336' }}>
-                        <FaArrowDown style={{ marginRight: '6px' }} />
-                        출고
-                      </span>
-                    )}
-                  </td>
-                  <td style={styles.td}>
-                    <span style={styles.productCode}>{getProductCode(transaction.productId)}</span>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.productName}>{getProductName(transaction.productId)}</div>
-                  </td>
-                  <td style={styles.td}>
-                    <span
-                      style={{
-                        ...styles.quantityText,
-                        color: transaction.type === 'in' ? '#4CAF50' : '#F44336',
-                      }}
-                    >
-                      {transaction.type === 'in' ? '+' : '-'}
-                      {formatNumber(transaction.quantity)}
-                    </span>
-                  </td>
-                  <td style={styles.td}>{transaction.user}</td>
-                  <td style={styles.td}>
-                    <div style={styles.noteText}>{transaction.note || '-'}</div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: '600', fontSize: '13px' }}>{t.productName}</div>
+                    </td>
+                    <td className="text-right" style={{ fontWeight: '700', fontSize: '15px', color: isIn ? '#3D8B37' : '#C62828' }}>
+                      {isIn ? '+' : '-'}{t.quantity?.toLocaleString()}
+                    </td>
+                    <td className="text-right" style={{ fontSize: '13px', color: '#718096' }}>{formatCurrency(t.unitPrice)}</td>
+                    <td className="text-right" style={{ fontWeight: '700', fontSize: '13px' }}>{formatCurrency(t.quantity * t.unitPrice)}</td>
+                    <td style={{ fontSize: '12px', color: '#718096' }}>{t.user}</td>
+                    <td style={{ fontSize: '12px', color: '#4A5568', maxWidth: '180px' }}>{t.note}</td>
+                    <td style={{ fontSize: '11px', fontFamily: 'monospace', color: '#2C5AA0' }}>{t.reference || '-'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '24px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
-    margin: 0,
-  },
-  exportButton: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px 24px',
-    backgroundColor: '#2196F3',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '20px',
-    marginBottom: '24px',
-  },
-  statCard: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    display: 'flex',
-    gap: '20px',
-    alignItems: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  statIcon: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statContent: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: '14px',
-    color: '#666',
-    marginBottom: '4px',
-  },
-  statValue: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statSubtext: {
-    fontSize: '12px',
-    color: '#999',
-    marginTop: '4px',
-  },
-  filterBar: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '20px',
-    marginBottom: '24px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  searchBox: {
-    marginBottom: '16px',
-  },
-  searchInput: {
-    width: '100%',
-    padding: '12px 16px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '8px',
-    fontSize: '16px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  filterRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  typeFilters: {
-    display: 'flex',
-    gap: '8px',
-  },
-  monthFilter: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  monthLabel: {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  monthSelect: {
-    padding: '8px 16px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '8px',
-    fontSize: '14px',
-    outline: 'none',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    transition: 'border-color 0.2s',
-  },
-  filterButton: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '8px 16px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '20px',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    fontSize: '14px',
-  },
-  filterButtonActive: {
-    backgroundColor: '#333',
-    color: 'white',
-    borderColor: '#333',
-  },
-  filterButtonActiveIn: {
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    borderColor: '#4CAF50',
-  },
-  filterButtonActiveOut: {
-    backgroundColor: '#F44336',
-    color: 'white',
-    borderColor: '#F44336',
-  },
-  tableContainer: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    overflowX: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  tableHeader: {
-    backgroundColor: '#f5f5f5',
-  },
-  th: {
-    padding: '16px',
-    textAlign: 'left',
-    fontWeight: 'bold',
-    color: '#333',
-    borderBottom: '2px solid #e0e0e0',
-  },
-  tableRow: {
-    transition: 'background-color 0.2s',
-  },
-  td: {
-    padding: '16px',
-    borderBottom: '1px solid #f0f0f0',
-  },
-  dateCell: {
-    fontSize: '14px',
-    color: '#666',
-  },
-  typeBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '6px 12px',
-    borderRadius: '12px',
-    color: 'white',
-    fontSize: '13px',
-    fontWeight: 'bold',
-  },
-  productCode: {
-    fontSize: '13px',
-    color: '#666',
-    fontFamily: 'monospace',
-  },
-  productName: {
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  quantityText: {
-    fontWeight: 'bold',
-    fontSize: '16px',
-  },
-  noteText: {
-    color: '#666',
-    fontSize: '14px',
-  },
-  noData: {
-    padding: '60px',
-    textAlign: 'center',
-    color: '#999',
-    fontSize: '16px',
-  },
-};
-
-export default Transactions;
+}

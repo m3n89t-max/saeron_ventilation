@@ -1,808 +1,266 @@
 import React, { useState, useMemo } from 'react';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaFileInvoice, FaStar, FaCheckCircle, FaTimesCircle, FaClock, FaFileExcel, FaDownload } from 'react-icons/fa';
-import useInventoryStore from '../store/inventoryStore';
-import { formatCurrency, formatNumber, formatDate } from '../utils/formatters';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaTimes, FaCheckCircle, FaFileAlt, FaExchangeAlt } from 'react-icons/fa';
+import useAppStore from '../store/appStore';
+import StatsCard from '../components/StatsCard';
+import { formatCurrency, formatDate, getQuoteStatusLabel, getQuoteStatusClass } from '../utils/formatters';
 
-const Quotes = () => {
-  const { 
-    quotes, 
-    products, 
-    addQuote, 
-    updateQuote, 
-    deleteQuote, 
-    getTotalQuotes,
-    getSuccessQuotesTotal,
-    getProspectQuotes,
-  } = useInventoryStore();
+const EMPTY_QUOTE = { customerName: '', customerPhone: '', customerEmail: '', validUntil: '', status: 'pending', note: '', user: '김영업', items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] };
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showQuoteModal, setShowQuoteModal] = useState(false);
-  const [editingQuote, setEditingQuote] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('all'); // all, pending, success, rejected
+export default function Quotes() {
+  const { quotes, addQuote, updateQuote, deleteQuote, addSalesOrder } = useAppStore();
 
-  const [quoteFormData, setQuoteFormData] = useState({
-    customerName: '',
-    customerCompany: '',
-    customerPhone: '',
-    customerEmail: '',
-    products: [{ productId: null, productName: '', quantity: 1, unitPrice: 0 }],
-    totalAmount: 0,
-    validUntil: '',
-    status: 'pending', // pending, success, rejected
-    isProspect: false, // 가망고객 표시
-    note: '',
-    user: '관리자',
-    attachedFile: null, // 첨부파일 정보 { name, size, type, data }
-  });
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('전체');
+  const [showModal, setShowModal] = useState(false);
+  const [editQuote, setEditQuote] = useState(null);
+  const [formData, setFormData] = useState(EMPTY_QUOTE);
+  const [err, setErr] = useState('');
+  const [detailQuote, setDetailQuote] = useState(null);
 
-  // 통계 계산
+  const filtered = useMemo(() => {
+    return quotes.filter((q) => {
+      const matchSearch = q.customerName.toLowerCase().includes(search.toLowerCase()) || (q.quoteNumber || '').toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === '전체' || q.status === statusFilter;
+      return matchSearch && matchStatus;
+    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [quotes, search, statusFilter]);
+
   const stats = useMemo(() => {
-    const total = quotes.reduce((sum, q) => sum + (q.totalAmount || 0), 0);
-    const successTotal = quotes
-      .filter((q) => q.status === 'success')
-      .reduce((sum, q) => sum + (q.totalAmount || 0), 0);
-    const prospectCount = quotes.filter((q) => q.isProspect === true).length;
-    const pendingCount = quotes.filter((q) => q.status === 'pending').length;
-    const successRate = quotes.length > 0 
-      ? ((quotes.filter((q) => q.status === 'success').length / quotes.length) * 100).toFixed(1)
-      : 0;
-
+    const pending = quotes.filter((q) => q.status === 'pending');
+    const accepted = quotes.filter((q) => q.status === 'accepted');
+    const rejected = quotes.filter((q) => q.status === 'rejected');
+    const winRate = quotes.length > 0 ? Math.round((accepted.length / quotes.length) * 100) : 0;
     return {
-      total,
-      successTotal,
-      prospectCount,
-      pendingCount,
-      successRate,
+      total: quotes.length, pending: pending.length, accepted: accepted.length, rejected: rejected.length,
+      pendingAmt: pending.reduce((s, q) => s + q.totalAmount, 0),
+      acceptedAmt: accepted.reduce((s, q) => s + q.totalAmount, 0),
+      winRate,
     };
   }, [quotes]);
 
-  // 필터링된 견적
-  const filteredQuotes = useMemo(() => {
-    return quotes.filter((quote) => {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = (
-        quote.customerName.toLowerCase().includes(searchLower) ||
-        (quote.customerCompany && quote.customerCompany.toLowerCase().includes(searchLower)) ||
-        (quote.customerPhone && quote.customerPhone.includes(searchLower))
-      );
-
-      const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [quotes, searchTerm, statusFilter]);
-
-  // 제품 추가
-  const handleAddProduct = () => {
-    setQuoteFormData({
-      ...quoteFormData,
-      products: [
-        ...quoteFormData.products,
-        { productId: null, productName: '', quantity: 1, unitPrice: 0 },
-      ],
-    });
+  const openAdd = () => { setEditQuote(null); setFormData({ ...EMPTY_QUOTE, items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] }); setErr(''); setShowModal(true); };
+  const openEdit = (q) => {
+    setEditQuote(q);
+    setFormData({ customerName: q.customerName, customerPhone: q.customerPhone || '', customerEmail: q.customerEmail || '', validUntil: q.validUntil || '', status: q.status, note: q.note || '', user: q.user || '', items: q.items.map((i) => ({ ...i })) });
+    setErr(''); setShowModal(true);
   };
 
-  // 제품 제거
-  const handleRemoveProduct = (index) => {
-    const newProducts = quoteFormData.products.filter((_, i) => i !== index);
-    setQuoteFormData({
-      ...quoteFormData,
-      products: newProducts,
-    });
-    calculateTotal(newProducts);
+  const handleItemChange = (idx, key, val) => {
+    const items = [...formData.items];
+    items[idx] = { ...items[idx], [key]: key === 'quantity' || key === 'unitPrice' ? (parseInt(val) || 0) : val };
+    items[idx].total = (items[idx].quantity || 0) * (items[idx].unitPrice || 0);
+    setFormData({ ...formData, items });
   };
+  const addItem = () => setFormData({ ...formData, items: [...formData.items, { productName: '', quantity: 1, unitPrice: 0, total: 0 }] });
+  const removeItem = (idx) => { if (formData.items.length > 1) setFormData({ ...formData, items: formData.items.filter((_, i) => i !== idx) }); };
 
-  // 제품명 변경
-  const handleProductNameChange = (index, name) => {
-    const newProducts = [...quoteFormData.products];
-    newProducts[index].productName = name;
-    setQuoteFormData({
-      ...quoteFormData,
-      products: newProducts,
-    });
-  };
+  const totalAmount = formData.items.reduce((s, i) => s + (i.total || 0), 0);
 
-  // 제품 선택 (옵션)
-  const handleProductSelect = (index, productId) => {
-    if (!productId) return;
-    
-    const product = products.find((p) => p.id === parseInt(productId));
-    if (product) {
-      const newProducts = [...quoteFormData.products];
-      newProducts[index] = {
-        ...newProducts[index],
-        productId: product.id,
-        productName: product.name,
-        unitPrice: product.price,
-      };
-      setQuoteFormData({
-        ...quoteFormData,
-        products: newProducts,
-      });
-      calculateTotal(newProducts);
-    }
-  };
-
-  // 수량 변경
-  const handleQuantityChange = (index, quantity) => {
-    const newProducts = [...quoteFormData.products];
-    newProducts[index].quantity = parseInt(quantity) || 1;
-    setQuoteFormData({
-      ...quoteFormData,
-      products: newProducts,
-    });
-    calculateTotal(newProducts);
-  };
-
-  // 단가 변경
-  const handlePriceChange = (index, price) => {
-    const newProducts = [...quoteFormData.products];
-    newProducts[index].unitPrice = parseInt(price) || 0;
-    setQuoteFormData({
-      ...quoteFormData,
-      products: newProducts,
-    });
-    calculateTotal(newProducts);
-  };
-
-  // 총액 계산
-  const calculateTotal = (products) => {
-    const total = products.reduce(
-      (sum, p) => sum + (p.quantity || 0) * (p.unitPrice || 0),
-      0
-    );
-    setQuoteFormData((prev) => ({
-      ...prev,
-      totalAmount: total,
-    }));
-  };
-
-  // 파일 첨부 처리
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // 파일 유효성 검사
-    const allowedTypes = [
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.oasis.opendocument.spreadsheet'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      alert('엑셀 파일만 업로드 가능합니다. (.xls, .xlsx)');
-      e.target.value = '';
-      return;
-    }
-
-    // 파일 크기 제한 (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('파일 크기는 5MB를 초과할 수 없습니다.');
-      e.target.value = '';
-      return;
-    }
-
-    // 파일을 Base64로 인코딩
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setQuoteFormData({
-        ...quoteFormData,
-        attachedFile: {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          data: event.target.result, // Base64 데이터
-        },
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 파일 삭제
-  const handleFileRemove = () => {
-    setQuoteFormData({
-      ...quoteFormData,
-      attachedFile: null,
-    });
-  };
-
-  // 파일 다운로드
-  const handleFileDownload = (file) => {
-    if (!file) return;
-    
-    const link = document.createElement('a');
-    link.href = file.data;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // 견적 제출
-  const handleQuoteSubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // 제품명이 입력되었는지 확인
-    const hasValidProducts = quoteFormData.products.some(p => p.productName.trim() !== '');
-    if (!hasValidProducts) {
-      alert('최소 1개 이상의 제품을 입력해주세요.');
-      return;
-    }
-
-    if (editingQuote) {
-      updateQuote(editingQuote.id, quoteFormData);
-      alert('견적이 수정되었습니다!');
-    } else {
-      addQuote(quoteFormData);
-      alert('견적이 등록되었습니다!');
-    }
-    
-    setShowQuoteModal(false);
-    resetForm();
+    if (!formData.customerName.trim()) return setErr('거래처명을 입력하세요.');
+    if (formData.items.some((i) => !i.productName.trim())) return setErr('제품명을 모두 입력하세요.');
+    if (editQuote) { updateQuote(editQuote.id, { ...formData, totalAmount }); } else { addQuote({ ...formData, totalAmount }); }
+    setShowModal(false);
   };
 
-  // 폼 초기화
-  const resetForm = () => {
-    setQuoteFormData({
-      customerName: '',
-      customerCompany: '',
-      customerPhone: '',
-      customerEmail: '',
-      products: [{ productId: null, productName: '', quantity: 1, unitPrice: 0 }],
-      totalAmount: 0,
-      validUntil: '',
-      status: 'pending',
-      isProspect: false,
-      note: '',
-      user: '관리자',
-      attachedFile: null,
-    });
-    setEditingQuote(null);
+  const handleDelete = (q) => { if (window.confirm(`"${q.quoteNumber}" 견적을 삭제하시겠습니까?`)) deleteQuote(q.id); };
+
+  const handleConvert = (q) => {
+    if (!window.confirm(`"${q.quoteNumber}" 견적을 수주(매출)로 전환하시겠습니까?`)) return;
+    addSalesOrder({ customerId: null, customerName: q.customerName, items: q.items, totalAmount: q.totalAmount, paidAmount: 0, paymentMethod: '미정', note: `견적 전환: ${q.quoteNumber}` });
+    updateQuote(q.id, { status: 'accepted' });
+    setDetailQuote(null);
+    alert('수주 전환 완료! 매입매출 > 매출 탭에서 확인하세요.');
   };
 
-  // 견적 수정
-  const handleEdit = (quote) => {
-    setEditingQuote(quote);
-    setQuoteFormData({
-      customerName: quote.customerName,
-      customerCompany: quote.customerCompany || '',
-      customerPhone: quote.customerPhone || '',
-      customerEmail: quote.customerEmail || '',
-      products: quote.products || [{ productId: null, productName: '', quantity: 1, unitPrice: 0 }],
-      totalAmount: quote.totalAmount || 0,
-      validUntil: quote.validUntil || '',
-      status: quote.status || 'pending',
-      isProspect: quote.isProspect || false,
-      note: quote.note || '',
-      user: quote.user || '관리자',
-      attachedFile: quote.attachedFile || null,
-    });
-    setShowQuoteModal(true);
-  };
-
-  // 견적 삭제
-  const handleDelete = (id) => {
-    if (window.confirm('견적을 삭제하시겠습니까?')) {
-      deleteQuote(id);
-    }
-  };
-
-  // 상태 변경
-  const handleStatusChange = (id, newStatus) => {
-    updateQuote(id, { status: newStatus });
-  };
-
-  // 상태 아이콘 및 색상
-  const getStatusInfo = (status) => {
-    switch (status) {
-      case 'success':
-        return { icon: <FaCheckCircle />, color: '#4CAF50', text: '성사' };
-      case 'rejected':
-        return { icon: <FaTimesCircle />, color: '#F44336', text: '불발' };
-      default:
-        return { icon: <FaClock />, color: '#FF9800', text: '대기중' };
-    }
-  };
+  const statusOpts = [{ v: '전체', l: '전체' }, { v: 'pending', l: '검토중' }, { v: 'accepted', l: '수주성사' }, { v: 'rejected', l: '거절' }];
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <div>
-          <h2 style={styles.title}>견적 현황</h2>
-          <p style={styles.subtitle}>고객 견적 관리 및 성사 현황</p>
-        </div>
-        <button 
-          onClick={() => {
-            resetForm();
-            setShowQuoteModal(true);
-          }} 
-          style={styles.addButton}
-        >
-          <FaPlus style={{ marginRight: '8px' }} />
-          견적 등록
-        </button>
+    <div className="page-container">
+      <div className="page-header">
+        <div><h2 className="page-title">견적 현황</h2><p className="page-subtitle">견적서 작성, 관리, 수주 전환</p></div>
+        <button className="btn-primary" onClick={openAdd}><FaPlus size={12} /> 견적 작성</button>
       </div>
 
-      {/* 통계 카드 */}
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statIcon}>
-            <FaFileInvoice style={{ color: '#2196F3', fontSize: '32px' }} />
-          </div>
-          <div style={styles.statContent}>
-            <div style={styles.statLabel}>총 견적액</div>
-            <div style={styles.statValue}>{formatCurrency(stats.total)}</div>
-          </div>
-        </div>
+      <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
+        <StatsCard icon={<FaFileAlt />} title="총 견적건수" value={`${stats.total}건`} sub={`수주율 ${stats.winRate}%`} color="#2C5AA0" />
+        <StatsCard icon={<FaFileAlt />} title="검토중" value={`${stats.pending}건`} sub={formatCurrency(stats.pendingAmt)} color="#E65100" />
+        <StatsCard icon={<FaCheckCircle />} title="수주성사" value={`${stats.accepted}건`} sub={formatCurrency(stats.acceptedAmt)} color="#3D8B37" />
+        <StatsCard icon={<FaTimes />} title="거절" value={`${stats.rejected}건`} sub="협의 불발" color="#C62828" />
+      </div>
 
-        <div style={styles.statCard}>
-          <div style={styles.statIcon}>
-            <FaCheckCircle style={{ color: '#4CAF50', fontSize: '32px' }} />
+      <div style={{ background: '#fff', borderRadius: '10px', padding: '14px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px' }}>
+        <div className="search-bar">
+          <div className="search-input-wrap">
+            <FaSearch />
+            <input className="form-input" placeholder="거래처명 또는 견적번호 검색..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: '32px' }} />
           </div>
-          <div style={styles.statContent}>
-            <div style={styles.statLabel}>성사 금액</div>
-            <div style={styles.statValue}>{formatCurrency(stats.successTotal)}</div>
-            <div style={styles.statSubtext}>성사율: {stats.successRate}%</div>
-          </div>
-        </div>
-
-        <div style={styles.statCard}>
-          <div style={styles.statIcon}>
-            <FaStar style={{ color: '#FF9800', fontSize: '32px' }} />
-          </div>
-          <div style={styles.statContent}>
-            <div style={styles.statLabel}>가망고객</div>
-            <div style={styles.statValue}>{formatNumber(stats.prospectCount)}명</div>
-          </div>
-        </div>
-
-        <div style={styles.statCard}>
-          <div style={styles.statIcon}>
-            <FaClock style={{ color: '#9E9E9E', fontSize: '32px' }} />
-          </div>
-          <div style={styles.statContent}>
-            <div style={styles.statLabel}>대기중</div>
-            <div style={styles.statValue}>{formatNumber(stats.pendingCount)}건</div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {statusOpts.map((o) => (
+              <button key={o.v} onClick={() => setStatusFilter(o.v)}
+                style={{ padding: '6px 14px', border: '1.5px solid', borderRadius: '20px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', background: statusFilter === o.v ? '#2C5AA0' : '#fff', color: statusFilter === o.v ? '#fff' : '#4A5568', borderColor: statusFilter === o.v ? '#2C5AA0' : '#E2E8F0' }}>
+                {o.l}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* 필터 및 검색 */}
-      <div style={styles.filterSection}>
-        <div style={styles.statusFilter}>
-          <button
-            onClick={() => setStatusFilter('all')}
-            style={{
-              ...styles.filterButton,
-              ...(statusFilter === 'all' ? styles.filterButtonActive : {}),
-            }}
-          >
-            전체
-          </button>
-          <button
-            onClick={() => setStatusFilter('pending')}
-            style={{
-              ...styles.filterButton,
-              ...(statusFilter === 'pending' ? styles.filterButtonActive : {}),
-            }}
-          >
-            대기중
-          </button>
-          <button
-            onClick={() => setStatusFilter('success')}
-            style={{
-              ...styles.filterButton,
-              ...(statusFilter === 'success' ? styles.filterButtonActive : {}),
-            }}
-          >
-            성사
-          </button>
-          <button
-            onClick={() => setStatusFilter('rejected')}
-            style={{
-              ...styles.filterButton,
-              ...(statusFilter === 'rejected' ? styles.filterButtonActive : {}),
-            }}
-          >
-            불발
-          </button>
+      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #E2E8F0' }}>
+          <span style={{ fontSize: '13px', color: '#718096', fontWeight: '600' }}>총 {filtered.length}건</span>
         </div>
-
-        <div style={styles.searchBox}>
-          <FaSearch style={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder="고객명, 회사명, 전화번호로 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
-        </div>
-      </div>
-
-      {/* 견적 내역 테이블 */}
-      <div style={styles.tableContainer}>
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.tableHeader}>
-              <th style={styles.th}>가망</th>
-              <th style={styles.th}>견적일시</th>
-              <th style={styles.th}>고객명</th>
-              <th style={styles.th}>회사명</th>
-              <th style={styles.th}>연락처</th>
-              <th style={styles.th}>견적금액</th>
-              <th style={styles.th}>유효기한</th>
-              <th style={styles.th}>첨부파일</th>
-              <th style={styles.th}>상태</th>
-              <th style={styles.th}>작업</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredQuotes.length === 0 ? (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan="10" style={styles.emptyMessage}>
-                  견적 내역이 없습니다.
-                </td>
+                <th>견적번호</th><th>거래처</th><th>제품 요약</th><th className="text-right">견적금액</th><th>유효기간</th><th>상태</th><th>담당자</th><th style={{ textAlign: 'center' }}>관리</th>
               </tr>
-            ) : (
-              filteredQuotes.map((quote) => {
-                const statusInfo = getStatusInfo(quote.status);
-                return (
-                  <tr key={quote.id} style={styles.tableRow}>
-                    <td style={styles.td}>
-                      {quote.isProspect && (
-                        <FaStar style={{ color: '#FF9800', fontSize: '18px' }} title="가망고객" />
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>견적 내역이 없습니다.</td></tr>
+              ) : filtered.map((q) => (
+                <tr key={q.id}>
+                  <td style={{ fontSize: '12px', fontFamily: 'monospace', color: '#2C5AA0', fontWeight: '700', cursor: 'pointer' }} onClick={() => setDetailQuote(q)}>{q.quoteNumber}</td>
+                  <td style={{ cursor: 'pointer' }} onClick={() => setDetailQuote(q)}>
+                    <div style={{ fontWeight: '600', fontSize: '13px' }}>{q.customerName}</div>
+                    <div style={{ fontSize: '11px', color: '#718096' }}>{q.customerPhone}</div>
+                  </td>
+                  <td style={{ cursor: 'pointer', fontSize: '12px', color: '#4A5568' }} onClick={() => setDetailQuote(q)}>
+                    {q.items[0]?.productName}{q.items.length > 1 ? ` 외 ${q.items.length - 1}건` : ''}
+                  </td>
+                  <td className="text-right" style={{ fontWeight: '800', fontSize: '15px', color: '#1A202C', cursor: 'pointer' }} onClick={() => setDetailQuote(q)}>
+                    {formatCurrency(q.totalAmount)}
+                  </td>
+                  <td style={{ fontSize: '13px', cursor: 'pointer' }} onClick={() => setDetailQuote(q)}>
+                    {q.validUntil || '-'}
+                    {q.validUntil && new Date(q.validUntil) < new Date() && q.status === 'pending' && (
+                      <span style={{ marginLeft: '6px', fontSize: '11px', color: '#C62828', fontWeight: '600' }}>만료</span>
+                    )}
+                  </td>
+                  <td><span className={`badge ${getQuoteStatusClass(q.status)}`}>{getQuoteStatusLabel(q.status)}</span></td>
+                  <td style={{ fontSize: '13px' }}>{q.user}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                      {q.status === 'pending' && (
+                        <button onClick={() => handleConvert(q)} title="수주 전환" style={{ padding: '5px 8px', background: '#EAF5E9', color: '#3D8B37', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <FaExchangeAlt size={9} /> 수주
+                        </button>
                       )}
-                    </td>
-                    <td style={styles.td}>{formatDate(quote.createdDate)}</td>
-                    <td style={styles.td}>
-                      <div style={styles.customerName}>{quote.customerName}</div>
-                    </td>
-                    <td style={styles.td}>{quote.customerCompany || '-'}</td>
-                    <td style={styles.td}>{quote.customerPhone || '-'}</td>
-                    <td style={styles.td}>
-                      <span style={styles.amount}>{formatCurrency(quote.totalAmount)}</span>
-                    </td>
-                    <td style={styles.td}>{quote.validUntil || '-'}</td>
-                    <td style={styles.td}>
-                      {quote.attachedFile ? (
-                        <button
-                          onClick={() => handleFileDownload(quote.attachedFile)}
-                          style={styles.downloadButton}
-                          title={quote.attachedFile.name}
-                        >
-                          <FaFileExcel style={{ marginRight: '4px', color: '#217346' }} />
-                          <FaDownload />
-                        </button>
-                      ) : (
-                        <span style={{ color: '#999' }}>-</span>
-                      )}
-                    </td>
-                    <td style={styles.td}>
-                      <select
-                        value={quote.status}
-                        onChange={(e) => handleStatusChange(quote.id, e.target.value)}
-                        style={{
-                          ...styles.statusSelect,
-                          color: statusInfo.color,
-                          borderColor: statusInfo.color,
-                        }}
-                      >
-                        <option value="pending">대기중</option>
-                        <option value="success">성사</option>
-                        <option value="rejected">불발</option>
-                      </select>
-                    </td>
-                    <td style={styles.td}>
-                      <div style={styles.actionButtons}>
-                        <button
-                          onClick={() => handleEdit(quote)}
-                          style={{ ...styles.actionButton, backgroundColor: '#2196F3' }}
-                          title="수정"
-                        >
-                          <FaEdit />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(quote.id)}
-                          style={{ ...styles.actionButton, backgroundColor: '#F44336' }}
-                          title="삭제"
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      <button onClick={() => openEdit(q)} style={{ padding: '5px 8px', background: '#EBF4FF', color: '#2C5AA0', border: 'none', borderRadius: '5px', cursor: 'pointer' }}><FaEdit size={11} /></button>
+                      <button onClick={() => handleDelete(q)} style={{ padding: '5px 8px', background: '#FFEBEE', color: '#C62828', border: 'none', borderRadius: '5px', cursor: 'pointer' }}><FaTrash size={11} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* 견적 등록/수정 모달 */}
-      {showQuoteModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowQuoteModal(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>
-              {editingQuote ? '견적 수정' : '견적 등록'}
-            </h3>
-            <form onSubmit={handleQuoteSubmit}>
-              {/* 고객 정보 */}
-              <div style={styles.sectionTitle}>고객 정보</div>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>고객명 *</label>
-                  <input
-                    type="text"
-                    value={quoteFormData.customerName}
-                    onChange={(e) =>
-                      setQuoteFormData({ ...quoteFormData, customerName: e.target.value })
-                    }
-                    style={styles.input}
-                    required
-                    placeholder="고객명 입력"
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>회사명</label>
-                  <input
-                    type="text"
-                    value={quoteFormData.customerCompany}
-                    onChange={(e) =>
-                      setQuoteFormData({ ...quoteFormData, customerCompany: e.target.value })
-                    }
-                    style={styles.input}
-                    placeholder="회사명 입력"
-                  />
-                </div>
+      {/* 상세보기 모달 */}
+      {detailQuote && (
+        <div className="modal-overlay" onClick={() => setDetailQuote(null)}>
+          <div className="modal-box" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E2E8F0' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: '700' }}>{detailQuote.quoteNumber}</h3>
+                <span className={`badge ${getQuoteStatusClass(detailQuote.status)}`} style={{ marginTop: '6px', display: 'inline-block' }}>{getQuoteStatusLabel(detailQuote.status)}</span>
               </div>
-
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>연락처 *</label>
-                  <input
-                    type="tel"
-                    value={quoteFormData.customerPhone}
-                    onChange={(e) =>
-                      setQuoteFormData({ ...quoteFormData, customerPhone: e.target.value })
-                    }
-                    style={styles.input}
-                    required
-                    placeholder="010-1234-5678"
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>이메일</label>
-                  <input
-                    type="email"
-                    value={quoteFormData.customerEmail}
-                    onChange={(e) =>
-                      setQuoteFormData({ ...quoteFormData, customerEmail: e.target.value })
-                    }
-                    style={styles.input}
-                    placeholder="email@example.com"
-                  />
-                </div>
-              </div>
-
-              {/* 제품 정보 */}
-              <div style={styles.sectionTitle}>
-                제품 정보
-                <button
-                  type="button"
-                  onClick={handleAddProduct}
-                  style={styles.addProductButton}
-                >
-                  <FaPlus style={{ marginRight: '4px' }} />
-                  제품 추가
-                </button>
-              </div>
-
-              {quoteFormData.products.map((product, index) => (
-                <div key={index} style={styles.productRow}>
-                  <div style={styles.productGrid}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>제품명 *</label>
-                      <input
-                        type="text"
-                        value={product.productName}
-                        onChange={(e) => handleProductNameChange(index, e.target.value)}
-                        style={styles.input}
-                        required
-                        placeholder="제품명을 직접 입력하세요"
-                        list={`product-suggestions-${index}`}
-                      />
-                      <datalist id={`product-suggestions-${index}`}>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.name} />
-                        ))}
-                      </datalist>
-                      <select
-                        value=""
-                        onChange={(e) => handleProductSelect(index, e.target.value)}
-                        style={{...styles.input, marginTop: '8px', fontSize: '13px', color: '#666'}}
-                      >
-                        <option value="">또는 등록된 제품에서 선택</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} - {formatCurrency(p.price)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>수량</label>
-                      <input
-                        type="number"
-                        value={product.quantity}
-                        onChange={(e) => handleQuantityChange(index, e.target.value)}
-                        style={styles.input}
-                        min="1"
-                        required
-                      />
-                    </div>
-
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>단가</label>
-                      <input
-                        type="number"
-                        value={product.unitPrice}
-                        onChange={(e) => handlePriceChange(index, e.target.value)}
-                        style={styles.input}
-                        min="0"
-                        required
-                        placeholder="원"
-                      />
-                    </div>
-
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>소계</label>
-                      <div style={styles.subtotal}>
-                        {formatCurrency(product.quantity * product.unitPrice)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {quoteFormData.products.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveProduct(index)}
-                      style={styles.removeProductButton}
-                      title="제품 제거"
-                    >
-                      <FaTrash />
-                    </button>
-                  )}
+              <button onClick={() => setDetailQuote(null)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#718096' }}><FaTimes /></button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              {[['거래처', detailQuote.customerName], ['연락처', detailQuote.customerPhone || '-'], ['이메일', detailQuote.customerEmail || '-'], ['유효기간', detailQuote.validUntil || '-'], ['담당자', detailQuote.user], ['작성일', formatDate(detailQuote.createdAt)]].map(([k, v]) => (
+                <div key={k} style={{ background: '#F7FAFC', padding: '10px', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: '600', marginBottom: '2px' }}>{k}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '600' }}>{v}</div>
                 </div>
               ))}
-
-              {/* 총 견적금액 */}
-              <div style={styles.totalAmountBox}>
-                <div style={styles.totalAmountLabel}>총 견적금액</div>
-                <div style={styles.totalAmount}>
-                  {formatCurrency(quoteFormData.totalAmount)}
-                </div>
-              </div>
-
-              {/* 견적 상세 정보 */}
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>유효기한</label>
-                  <input
-                    type="date"
-                    value={quoteFormData.validUntil}
-                    onChange={(e) =>
-                      setQuoteFormData({ ...quoteFormData, validUntil: e.target.value })
-                    }
-                    style={styles.input}
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>담당자</label>
-                  <input
-                    type="text"
-                    value={quoteFormData.user}
-                    onChange={(e) =>
-                      setQuoteFormData({ ...quoteFormData, user: e.target.value })
-                    }
-                    style={styles.input}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* 가망고객 체크박스 */}
-              <div style={styles.formGroup}>
-                <label style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={quoteFormData.isProspect}
-                    onChange={(e) =>
-                      setQuoteFormData({ ...quoteFormData, isProspect: e.target.checked })
-                    }
-                    style={styles.checkbox}
-                  />
-                  <FaStar style={{ color: '#FF9800', marginLeft: '8px', marginRight: '4px' }} />
-                  가망고객으로 표시
-                </label>
-              </div>
-
-              {/* 비고 */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>비고</label>
-                <textarea
-                  value={quoteFormData.note}
-                  onChange={(e) =>
-                    setQuoteFormData({ ...quoteFormData, note: e.target.value })
-                  }
-                  style={{ ...styles.input, minHeight: '80px' }}
-                  placeholder="특이사항을 입력하세요"
-                />
-              </div>
-
-              {/* 견적서 파일 첨부 */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  <FaFileExcel style={{ marginRight: '8px', color: '#217346' }} />
-                  견적서 파일 첨부 (엑셀)
-                </label>
-                {quoteFormData.attachedFile ? (
-                  <div style={styles.fileAttached}>
-                    <div style={styles.fileInfo}>
-                      <FaFileExcel style={{ fontSize: '24px', color: '#217346', marginRight: '12px' }} />
-                      <div>
-                        <div style={styles.fileName}>{quoteFormData.attachedFile.name}</div>
-                        <div style={styles.fileSize}>
-                          {(quoteFormData.attachedFile.size / 1024).toFixed(2)} KB
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleFileRemove}
-                      style={styles.removeFileButton}
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ) : (
-                  <div style={styles.fileUploadBox}>
-                    <input
-                      type="file"
-                      accept=".xls,.xlsx"
-                      onChange={handleFileUpload}
-                      style={styles.fileInput}
-                      id="file-upload"
-                    />
-                    <label htmlFor="file-upload" style={styles.fileUploadLabel}>
-                      <FaFileExcel style={{ fontSize: '32px', color: '#217346', marginBottom: '8px' }} />
-                      <div>엑셀 파일을 선택하세요</div>
-                      <div style={styles.fileUploadHint}>(.xls, .xlsx 파일, 최대 5MB)</div>
-                    </label>
-                  </div>
-                )}
-              </div>
-
-              {/* 버튼 */}
-              <div style={styles.modalActions}>
-                <button type="submit" style={styles.submitButton}>
-                  {editingQuote ? '수정' : '등록'}
+            </div>
+            <table className="data-table" style={{ marginBottom: '12px' }}>
+              <thead><tr><th>제품명</th><th className="text-right">수량</th><th className="text-right">단가</th><th className="text-right">합계</th></tr></thead>
+              <tbody>
+                {detailQuote.items.map((item, i) => (
+                  <tr key={i}><td>{item.productName}</td><td className="text-right">{item.quantity?.toLocaleString()}</td><td className="text-right">{formatCurrency(item.unitPrice)}</td><td className="text-right fw-700">{formatCurrency(item.total)}</td></tr>
+                ))}
+                <tr style={{ background: '#EBF4FF' }}>
+                  <td colSpan={3} style={{ textAlign: 'right', fontWeight: '700' }}>총 견적금액</td>
+                  <td className="text-right" style={{ fontWeight: '800', fontSize: '16px', color: '#2C5AA0' }}>{formatCurrency(detailQuote.totalAmount)}</td>
+                </tr>
+              </tbody>
+            </table>
+            {detailQuote.note && <div style={{ background: '#FFF8E1', padding: '10px 14px', borderRadius: '7px', fontSize: '13px', color: '#4A5568', marginBottom: '12px' }}><strong>비고:</strong> {detailQuote.note}</div>}
+            {detailQuote.status === 'pending' && (
+              <div className="modal-actions">
+                <button onClick={() => { updateQuote(detailQuote.id, { status: 'rejected' }); setDetailQuote(null); }} className="btn-danger">거절 처리</button>
+                <button onClick={() => handleConvert(detailQuote)} style={{ padding: '9px 18px', background: '#3D8B37', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FaExchangeAlt size={12} /> 수주 전환
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowQuoteModal(false);
-                    resetForm();
-                  }}
-                  style={styles.cancelButton}
-                >
-                  취소
-                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 작성/수정 모달 */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-box" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '700' }}>{editQuote ? '견적 수정' : '견적 작성'}</h3>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#718096', cursor: 'pointer' }}><FaTimes /></button>
+            </div>
+            {err && <div style={{ background: '#FFEBEE', color: '#C62828', padding: '10px 14px', borderRadius: '7px', marginBottom: '14px', fontSize: '13px' }}>{err}</div>}
+            <form onSubmit={handleSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ gridColumn: '1 / -1' }}><label className="form-label">거래처명 *</label><input className="form-input" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="거래처명 입력" /></div>
+                <div><label className="form-label">연락처</label><input className="form-input" value={formData.customerPhone} onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} placeholder="010-0000-0000" /></div>
+                <div><label className="form-label">이메일</label><input className="form-input" value={formData.customerEmail} onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })} /></div>
+                <div><label className="form-label">유효기간</label><input className="form-input" type="date" value={formData.validUntil} onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })} /></div>
+                <div><label className="form-label">담당자</label><input className="form-input" value={formData.user} onChange={(e) => setFormData({ ...formData, user: e.target.value })} /></div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label className="form-label" style={{ margin: 0 }}>견적 품목</label>
+                  <button type="button" onClick={addItem} style={{ fontSize: '12px', color: '#2C5AA0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>+ 품목 추가</button>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+                    <thead>
+                      <tr style={{ background: '#F7FAFC' }}>
+                        <th style={{ padding: '8px', textAlign: 'left', fontSize: '11px', color: '#718096', fontWeight: '700' }}>제품명</th>
+                        <th style={{ padding: '8px', textAlign: 'right', fontSize: '11px', color: '#718096', fontWeight: '700', width: '80px' }}>수량</th>
+                        <th style={{ padding: '8px', textAlign: 'right', fontSize: '11px', color: '#718096', fontWeight: '700', width: '120px' }}>단가</th>
+                        <th style={{ padding: '8px', textAlign: 'right', fontSize: '11px', color: '#718096', fontWeight: '700', width: '120px' }}>합계</th>
+                        <th style={{ width: '30px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formData.items.map((item, idx) => (
+                        <tr key={idx}>
+                          <td style={{ padding: '4px' }}><input className="form-input" value={item.productName} onChange={(e) => handleItemChange(idx, 'productName', e.target.value)} placeholder="제품명" style={{ fontSize: '13px' }} /></td>
+                          <td style={{ padding: '4px' }}><input className="form-input" type="number" min="1" value={item.quantity} onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)} style={{ textAlign: 'right', fontSize: '13px' }} /></td>
+                          <td style={{ padding: '4px' }}><input className="form-input" type="number" min="0" value={item.unitPrice} onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)} style={{ textAlign: 'right', fontSize: '13px' }} /></td>
+                          <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: '700', fontSize: '13px' }}>{formatCurrency(item.total)}</td>
+                          <td style={{ padding: '4px' }}><button type="button" onClick={() => removeItem(idx)} style={{ background: 'none', border: 'none', color: '#C62828', cursor: 'pointer', padding: '4px' }}><FaTimes size={10} /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ textAlign: 'right', padding: '10px 4px', fontWeight: '800', fontSize: '16px', color: '#2C5AA0', borderTop: '2px solid #E2E8F0', marginTop: '4px' }}>
+                  총 견적금액: {formatCurrency(totalAmount)}
+                </div>
+              </div>
+
+              <div><label className="form-label">비고</label><textarea className="form-input" value={formData.note} onChange={(e) => setFormData({ ...formData, note: e.target.value })} rows={2} placeholder="특이사항, 조건 등" style={{ resize: 'vertical' }} /></div>
+
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '9px 18px', border: '1.5px solid #E2E8F0', borderRadius: '7px', background: '#fff', color: '#4A5568', fontWeight: '600', cursor: 'pointer' }}>취소</button>
+                <button type="submit" className="btn-primary">{editQuote ? '수정 완료' : '견적 등록'}</button>
               </div>
             </form>
           </div>
@@ -810,429 +268,4 @@ const Quotes = () => {
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '24px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
-    margin: 0,
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#666',
-    marginTop: '4px',
-  },
-  addButton: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px 24px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginBottom: '24px',
-  },
-  statCard: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '20px',
-  },
-  statIcon: {
-    flex: '0 0 auto',
-  },
-  statContent: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: '14px',
-    color: '#666',
-    marginBottom: '8px',
-  },
-  statValue: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statSubtext: {
-    fontSize: '12px',
-    color: '#999',
-    marginTop: '4px',
-  },
-  filterSection: {
-    display: 'flex',
-    gap: '16px',
-    marginBottom: '24px',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  statusFilter: {
-    display: 'flex',
-    gap: '8px',
-  },
-  filterButton: {
-    padding: '10px 20px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '8px',
-    backgroundColor: 'white',
-    color: '#666',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  filterButtonActive: {
-    borderColor: '#2196F3',
-    backgroundColor: '#2196F3',
-    color: 'white',
-  },
-  searchBox: {
-    position: 'relative',
-    flex: 1,
-    minWidth: '300px',
-  },
-  searchIcon: {
-    position: 'absolute',
-    left: '16px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    color: '#999',
-  },
-  searchInput: {
-    width: '100%',
-    padding: '12px 12px 12px 45px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '8px',
-    fontSize: '16px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  tableContainer: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    overflowX: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  tableHeader: {
-    backgroundColor: '#f5f5f5',
-  },
-  th: {
-    padding: '16px',
-    textAlign: 'left',
-    fontWeight: 'bold',
-    color: '#333',
-    borderBottom: '2px solid #e0e0e0',
-  },
-  tableRow: {
-    transition: 'background-color 0.2s',
-  },
-  td: {
-    padding: '16px',
-    borderBottom: '1px solid #f0f0f0',
-  },
-  emptyMessage: {
-    padding: '40px',
-    textAlign: 'center',
-    color: '#999',
-    fontSize: '16px',
-  },
-  customerName: {
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  amount: {
-    fontWeight: 'bold',
-    fontSize: '16px',
-    color: '#2196F3',
-  },
-  statusSelect: {
-    padding: '6px 12px',
-    border: '2px solid',
-    borderRadius: '6px',
-    fontWeight: 'bold',
-    fontSize: '14px',
-    cursor: 'pointer',
-    backgroundColor: 'white',
-  },
-  actionButtons: {
-    display: 'flex',
-    gap: '8px',
-  },
-  actionButton: {
-    padding: '8px 12px',
-    border: 'none',
-    borderRadius: '6px',
-    color: 'white',
-    cursor: 'pointer',
-    transition: 'opacity 0.2s',
-    fontSize: '14px',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '32px',
-    maxWidth: '900px',
-    width: '90%',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-  },
-  modalTitle: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    marginBottom: '24px',
-    color: '#333',
-  },
-  sectionTitle: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: '24px',
-    marginBottom: '16px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '16px',
-    marginBottom: '16px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    marginBottom: '16px',
-  },
-  label: {
-    marginBottom: '8px',
-    fontWeight: 'bold',
-    color: '#333',
-    fontSize: '14px',
-  },
-  input: {
-    padding: '12px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '8px',
-    fontSize: '16px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  addProductButton: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '8px 16px',
-    backgroundColor: '#2196F3',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-  },
-  productRow: {
-    position: 'relative',
-    marginBottom: '16px',
-    padding: '16px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  productGrid: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1fr 1fr',
-    gap: '12px',
-  },
-  subtotal: {
-    padding: '12px',
-    backgroundColor: '#E3F2FD',
-    borderRadius: '8px',
-    fontWeight: 'bold',
-    fontSize: '16px',
-    color: '#2196F3',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeProductButton: {
-    position: 'absolute',
-    top: '8px',
-    right: '8px',
-    padding: '6px 10px',
-    backgroundColor: '#F44336',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '12px',
-  },
-  totalAmountBox: {
-    backgroundColor: '#E8F5E9',
-    padding: '24px',
-    borderRadius: '8px',
-    marginBottom: '24px',
-    textAlign: 'center',
-  },
-  totalAmountLabel: {
-    fontSize: '16px',
-    color: '#2E7D32',
-    marginBottom: '8px',
-    fontWeight: 'bold',
-  },
-  totalAmount: {
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#2E7D32',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    cursor: 'pointer',
-    fontSize: '16px',
-    color: '#333',
-  },
-  checkbox: {
-    width: '18px',
-    height: '18px',
-    cursor: 'pointer',
-  },
-  modalActions: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'flex-end',
-    marginTop: '24px',
-  },
-  submitButton: {
-    padding: '12px 24px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  cancelButton: {
-    padding: '12px 24px',
-    backgroundColor: '#f5f5f5',
-    color: '#333',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  downloadButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '6px 12px',
-    backgroundColor: '#E8F5E9',
-    border: '1px solid #217346',
-    borderRadius: '6px',
-    color: '#217346',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'all 0.2s',
-  },
-  fileUploadBox: {
-    border: '2px dashed #e0e0e0',
-    borderRadius: '8px',
-    padding: '32px',
-    textAlign: 'center',
-    backgroundColor: '#fafafa',
-    transition: 'all 0.2s',
-    cursor: 'pointer',
-  },
-  fileInput: {
-    display: 'none',
-  },
-  fileUploadLabel: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    cursor: 'pointer',
-    color: '#666',
-    fontSize: '14px',
-  },
-  fileUploadHint: {
-    fontSize: '12px',
-    color: '#999',
-    marginTop: '4px',
-  },
-  fileAttached: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px',
-    backgroundColor: '#E8F5E9',
-    borderRadius: '8px',
-    border: '2px solid #217346',
-  },
-  fileInfo: {
-    display: 'flex',
-    alignItems: 'center',
-  },
-  fileName: {
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: '4px',
-  },
-  fileSize: {
-    fontSize: '12px',
-    color: '#666',
-  },
-  removeFileButton: {
-    padding: '8px 12px',
-    backgroundColor: '#F44336',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'opacity 0.2s',
-  },
-};
-
-export default Quotes;
+}

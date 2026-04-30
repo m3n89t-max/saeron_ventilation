@@ -1,414 +1,152 @@
 import React, { useState } from 'react';
-import { FaCog, FaDatabase, FaDownload, FaUpload, FaTrash } from 'react-icons/fa';
-import useInventoryStore from '../store/inventoryStore';
+import { FaDownload, FaUpload, FaTrash, FaCog, FaInfoCircle, FaDatabase } from 'react-icons/fa';
+import useAppStore from '../store/appStore';
 
-const Settings = () => {
-  const store = useInventoryStore();
-  const [showConfirm, setShowConfirm] = useState(false);
+export default function Settings() {
+  const { exportData, products, salesOrders, purchaseOrders, quotes, customers, suppliers, expenses, otherIncome, transactions } = useAppStore();
+  const [importStatus, setImportStatus] = useState('');
 
-  const exportData = () => {
-    const data = {
-      products: store.products,
-      transactions: store.transactions,
-      exportDate: new Date().toISOString(),
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    });
+  const handleExport = () => {
+    const data = exportData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `saeron_inventory_backup_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `saeron_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
     URL.revokeObjectURL(url);
+    setImportStatus('데이터가 내보내기 완료되었습니다.');
   };
 
-  const importData = (event) => {
-    const file = event.target.files?.[0];
+  const handleImport = (e) => {
+    const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (ev) => {
       try {
-        const data = JSON.parse(e.target?.result);
-        if (data.products && data.transactions) {
-          // 데이터 가져오기 로직 (여기서는 단순화)
-          alert('데이터를 가져왔습니다!');
+        const data = JSON.parse(ev.target.result);
+        if (data.products || data.salesOrders) {
+          setImportStatus('백업 파일이 로드되었습니다. (현재 버전에서는 수동으로 데이터를 확인하세요)');
         } else {
-          alert('올바르지 않은 파일 형식입니다.');
+          setImportStatus('올바른 백업 파일이 아닙니다.');
         }
-      } catch (error) {
-        alert('파일을 읽는 중 오류가 발생했습니다.');
+      } catch {
+        setImportStatus('파일 형식 오류입니다. JSON 파일을 확인하세요.');
       }
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
-  const clearAllData = () => {
-    localStorage.removeItem('saeron-inventory-storage');
+  const handleReset = () => {
+    if (!window.confirm('⚠️ 모든 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+    if (!window.confirm('정말로 초기화하시겠습니까? 모든 데이터가 삭제됩니다.')) return;
+    localStorage.removeItem('saeron-app-v2');
     window.location.reload();
   };
 
-  return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>
-        <FaCog style={{ marginRight: '12px' }} />
-        설정
-      </h2>
+  const dataCounts = [
+    { label: '제품', count: products.length },
+    { label: '입출고 내역', count: transactions.length },
+    { label: '견적', count: quotes.length },
+    { label: '매출', count: salesOrders.length },
+    { label: '매입', count: purchaseOrders.length },
+    { label: '운영 지출', count: expenses.length },
+    { label: '기타 수입', count: otherIncome.length },
+    { label: '거래처', count: customers.length },
+    { label: '공급업체', count: suppliers.length },
+  ];
 
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <FaDatabase style={{ fontSize: '24px', color: '#4CAF50' }} />
-            <div>
-              <h3 style={styles.cardTitle}>데이터 관리</h3>
-              <p style={styles.cardDescription}>
-                재고 데이터를 백업하거나 복원할 수 있습니다.
-              </p>
-            </div>
-          </div>
-
-          <div style={styles.actionGrid}>
-            <div style={styles.actionCard}>
-              <FaDownload style={{ fontSize: '32px', color: '#2196F3' }} />
-              <h4 style={styles.actionTitle}>데이터 내보내기</h4>
-              <p style={styles.actionDescription}>
-                현재 재고 데이터를 JSON 파일로 내보냅니다.
-              </p>
-              <button onClick={exportData} style={styles.primaryButton}>
-                내보내기
-              </button>
-            </div>
-
-            <div style={styles.actionCard}>
-              <FaUpload style={{ fontSize: '32px', color: '#FF9800' }} />
-              <h4 style={styles.actionTitle}>데이터 가져오기</h4>
-              <p style={styles.actionDescription}>
-                백업된 JSON 파일에서 데이터를 복원합니다.
-              </p>
-              <label style={styles.primaryButton}>
-                가져오기
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={importData}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            </div>
-
-            <div style={styles.actionCard}>
-              <FaTrash style={{ fontSize: '32px', color: '#F44336' }} />
-              <h4 style={styles.actionTitle}>데이터 초기화</h4>
-              <p style={styles.actionDescription}>
-                모든 재고 데이터를 삭제하고 초기화합니다.
-              </p>
-              <button
-                onClick={() => setShowConfirm(true)}
-                style={styles.dangerButton}
-              >
-                초기화
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>시스템 정보</h3>
-          <div style={styles.infoGrid}>
-            <div style={styles.infoItem}>
-              <div style={styles.infoLabel}>시스템명</div>
-              <div style={styles.infoValue}>(주)새론 재고관리 시스템</div>
-            </div>
-            <div style={styles.infoItem}>
-              <div style={styles.infoLabel}>버전</div>
-              <div style={styles.infoValue}>1.0.0</div>
-            </div>
-            <div style={styles.infoItem}>
-              <div style={styles.infoLabel}>등록된 제품</div>
-              <div style={styles.infoValue}>{store.products.length}개</div>
-            </div>
-            <div style={styles.infoItem}>
-              <div style={styles.infoLabel}>총 거래 내역</div>
-              <div style={styles.infoValue}>{store.transactions.length}건</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={styles.section}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>사용 안내</h3>
-          <div style={styles.guideList}>
-            <div style={styles.guideItem}>
-              <div style={styles.guideNumber}>1</div>
-              <div style={styles.guideContent}>
-                <h4 style={styles.guideTitle}>대시보드</h4>
-                <p style={styles.guideText}>
-                  재고 현황과 통계를 한눈에 확인할 수 있습니다.
-                </p>
-              </div>
-            </div>
-            <div style={styles.guideItem}>
-              <div style={styles.guideNumber}>2</div>
-              <div style={styles.guideContent}>
-                <h4 style={styles.guideTitle}>재고 관리</h4>
-                <p style={styles.guideText}>
-                  제품을 등록하고 입출고 처리를 할 수 있습니다.
-                </p>
-              </div>
-            </div>
-            <div style={styles.guideItem}>
-              <div style={styles.guideNumber}>3</div>
-              <div style={styles.guideContent}>
-                <h4 style={styles.guideTitle}>입출고 내역</h4>
-                <p style={styles.guideText}>
-                  모든 입출고 거래 내역을 조회하고 관리할 수 있습니다.
-                </p>
-              </div>
-            </div>
-            <div style={styles.guideItem}>
-              <div style={styles.guideNumber}>4</div>
-              <div style={styles.guideContent}>
-                <h4 style={styles.guideTitle}>리포트</h4>
-                <p style={styles.guideText}>
-                  다양한 차트와 그래프로 재고 분석을 할 수 있습니다.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 초기화 확인 모달 */}
-      {showConfirm && (
-        <div style={styles.modalOverlay} onClick={() => setShowConfirm(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>⚠️ 데이터 초기화</h3>
-            <p style={styles.modalText}>
-              모든 재고 데이터가 영구적으로 삭제됩니다.
-              <br />
-              이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?
-            </p>
-            <div style={styles.modalActions}>
-              <button onClick={clearAllData} style={styles.confirmButton}>
-                초기화
-              </button>
-              <button onClick={() => setShowConfirm(false)} style={styles.cancelButton}>
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+  const Section = ({ title, icon, children }) => (
+    <div style={{ background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px' }}>
+      <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1A202C', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E2E8F0' }}>
+        {icon} {title}
+      </h3>
+      {children}
     </div>
   );
-};
 
-const styles = {
-  container: {
-    padding: '24px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    marginBottom: '24px',
-    color: '#333',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  section: {
-    marginBottom: '24px',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  cardHeader: {
-    display: 'flex',
-    gap: '16px',
-    marginBottom: '24px',
-    alignItems: 'flex-start',
-  },
-  cardTitle: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginBottom: '8px',
-    color: '#333',
-  },
-  cardDescription: {
-    color: '#666',
-    fontSize: '14px',
-    margin: 0,
-  },
-  actionGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-  },
-  actionCard: {
-    padding: '24px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '12px',
-    textAlign: 'center',
-    transition: 'all 0.2s',
-  },
-  actionTitle: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    margin: '16px 0 8px 0',
-    color: '#333',
-  },
-  actionDescription: {
-    fontSize: '14px',
-    color: '#666',
-    marginBottom: '20px',
-  },
-  primaryButton: {
-    padding: '12px 24px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    display: 'inline-block',
-  },
-  dangerButton: {
-    padding: '12px 24px',
-    backgroundColor: '#F44336',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '20px',
-  },
-  infoItem: {
-    padding: '16px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  infoLabel: {
-    fontSize: '12px',
-    color: '#666',
-    marginBottom: '8px',
-  },
-  infoValue: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  guideList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  guideItem: {
-    display: 'flex',
-    gap: '16px',
-    padding: '16px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  guideNumber: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '50%',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 'bold',
-    fontSize: '18px',
-    flexShrink: 0,
-  },
-  guideContent: {
-    flex: 1,
-  },
-  guideTitle: {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    marginBottom: '4px',
-    color: '#333',
-  },
-  guideText: {
-    fontSize: '14px',
-    color: '#666',
-    margin: 0,
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '32px',
-    maxWidth: '500px',
-    width: '90%',
-  },
-  modalTitle: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    marginBottom: '16px',
-    color: '#F44336',
-  },
-  modalText: {
-    fontSize: '16px',
-    color: '#666',
-    marginBottom: '24px',
-    lineHeight: 1.6,
-  },
-  modalActions: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'flex-end',
-  },
-  confirmButton: {
-    padding: '12px 24px',
-    backgroundColor: '#F44336',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-  },
-  cancelButton: {
-    padding: '12px 24px',
-    backgroundColor: '#f5f5f5',
-    color: '#333',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-  },
-};
+  return (
+    <div className="page-container" style={{ maxWidth: '800px' }}>
+      <div className="page-header">
+        <div><h2 className="page-title">설정</h2><p className="page-subtitle">데이터 관리, 백업, 시스템 정보</p></div>
+      </div>
 
-export default Settings;
+      {/* 데이터 현황 */}
+      <Section title="데이터 현황" icon={<FaDatabase color="#2C5AA0" />}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
+          {dataCounts.map(({ label, count }) => (
+            <div key={label} style={{ background: '#F7FAFC', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#2C5AA0' }}>{count}</div>
+              <div style={{ fontSize: '12px', color: '#718096', fontWeight: '600', marginTop: '2px' }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* 데이터 백업 */}
+      <Section title="데이터 백업 / 복원" icon={<FaDatabase color="#3D8B37" />}>
+        {importStatus && (
+          <div style={{ background: '#EAF5E9', color: '#3D8B37', padding: '10px 14px', borderRadius: '7px', marginBottom: '16px', fontSize: '13px', fontWeight: '600' }}>
+            {importStatus}
+          </div>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', border: '1.5px solid #E2E8F0', borderRadius: '8px' }}>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '2px' }}>데이터 내보내기</div>
+              <div style={{ fontSize: '12px', color: '#718096' }}>현재 모든 데이터를 JSON 파일로 저장합니다.</div>
+            </div>
+            <button className="btn-primary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              <FaDownload size={12} /> 내보내기
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', border: '1.5px solid #E2E8F0', borderRadius: '8px' }}>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '2px' }}>데이터 불러오기</div>
+              <div style={{ fontSize: '12px', color: '#718096' }}>JSON 백업 파일을 불러옵니다.</div>
+            </div>
+            <label className="btn-outline" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', flexShrink: 0 }}>
+              <FaUpload size={12} /> 불러오기
+              <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
+            </label>
+          </div>
+        </div>
+      </Section>
+
+      {/* 데이터 초기화 */}
+      <Section title="데이터 초기화" icon={<FaTrash color="#C62828" />}>
+        <div style={{ background: '#FFEBEE', borderRadius: '8px', padding: '16px', border: '1px solid #FFCDD2' }}>
+          <div style={{ fontWeight: '700', fontSize: '14px', color: '#C62828', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FaInfoCircle /> 주의: 이 작업은 되돌릴 수 없습니다.
+          </div>
+          <div style={{ fontSize: '13px', color: '#4A5568', marginBottom: '14px' }}>
+            모든 데이터(제품, 매출, 매입, 견적, 입출고 등)가 삭제되고 초기 상태로 돌아갑니다.
+            반드시 데이터를 먼저 백업하세요.
+          </div>
+          <button onClick={handleReset} style={{ padding: '10px 20px', background: '#C62828', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FaTrash size={12} /> 데이터 초기화
+          </button>
+        </div>
+      </Section>
+
+      {/* 시스템 정보 */}
+      <Section title="시스템 정보" icon={<FaInfoCircle color="#718096" />}>
+        <div style={{ display: 'grid', gap: '8px' }}>
+          {[
+            ['시스템명', '(주)새론 환기시스템 통합관리시스템'],
+            ['버전', '2.0.0'],
+            ['개발 프레임워크', 'React 18 + Vite'],
+            ['상태 관리', 'Zustand (LocalStorage 영구 저장)'],
+            ['최종 업데이트', '2026-04-30'],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', gap: '16px', padding: '10px 0', borderBottom: '1px solid #F0F4F8' }}>
+              <span style={{ fontSize: '13px', color: '#718096', fontWeight: '600', minWidth: '140px' }}>{k}</span>
+              <span style={{ fontSize: '13px', color: '#1A202C' }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </div>
+  );
+}
