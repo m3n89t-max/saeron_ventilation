@@ -60,9 +60,9 @@ const Dashboard = () => {
   const lowStockList = getLowStockProducts().slice(0, 6);
 
   const fmt = (v) => {
-    if (v >= 100000000) return `${(v / 100000000).toFixed(1)}억`;
-    if (v >= 10000) return `${(v / 10000).toFixed(0)}만`;
-    return v.toLocaleString();
+    if (v >= 100000000) return `${(v / 100000000).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}억`;
+    if (v >= 10000) return `${Math.floor(v / 10000).toLocaleString('ko-KR')}만`;
+    return v.toLocaleString('ko-KR');
   };
 
   return (
