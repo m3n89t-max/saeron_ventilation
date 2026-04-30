@@ -98,6 +98,12 @@ export default function Finance() {
     { v: 'income', l: '기타 수입' },
   ];
 
+  const fmt = (v) => {
+    if (v >= 100000000) return `${(v / 100000000).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}억`;
+    if (v >= 10000) return `${Math.floor(v / 10000).toLocaleString('ko-KR')}만`;
+    return v.toLocaleString('ko-KR');
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -114,10 +120,10 @@ export default function Finance() {
 
       {/* 이번달 핵심 지표 */}
       <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
-        <StatsCard icon={<FaArrowUp />} title="이번달 총 수입" value={`₩${(thisMonth.revenue / 10000).toFixed(0)}만`} sub={formatCurrency(thisMonth.revenue)} color="#3D8B37" />
-        <StatsCard icon={<FaArrowDown />} title="이번달 매입원가" value={`₩${(thisMonth.purchaseCost / 10000).toFixed(0)}만`} sub={formatCurrency(thisMonth.purchaseCost)} color="#C62828" />
-        <StatsCard icon={<FaArrowDown />} title="이번달 운영비" value={`₩${(thisMonth.opExpense / 10000).toFixed(0)}만`} sub={formatCurrency(thisMonth.opExpense)} color="#E65100" />
-        <StatsCard icon={<FaWallet />} title="이번달 순이익" value={`₩${(Math.abs(thisMonth.profit) / 10000).toFixed(0)}만`} sub={thisMonth.profit >= 0 ? `흑자 (이익률 ${thisMonth.profitRate}%)` : `적자 (손실률 ${Math.abs(thisMonth.profitRate)}%)`} color={thisMonth.profit >= 0 ? '#3D8B37' : '#C62828'} />
+        <StatsCard icon={<FaArrowUp />} title="이번달 총 수입" value={`₩${fmt(thisMonth.revenue)}`} sub={formatCurrency(thisMonth.revenue)} color="#3D8B37" />
+        <StatsCard icon={<FaArrowDown />} title="이번달 매입원가" value={`₩${fmt(thisMonth.purchaseCost)}`} sub={formatCurrency(thisMonth.purchaseCost)} color="#C62828" />
+        <StatsCard icon={<FaArrowDown />} title="이번달 운영비" value={`₩${fmt(thisMonth.opExpense)}`} sub={formatCurrency(thisMonth.opExpense)} color="#E65100" />
+        <StatsCard icon={<FaWallet />} title="이번달 순이익" value={`₩${fmt(Math.abs(thisMonth.profit))}`} sub={thisMonth.profit >= 0 ? `흑자 (이익률 ${thisMonth.profitRate}%)` : `적자 (손실률 ${Math.abs(thisMonth.profitRate)}%)`} color={thisMonth.profit >= 0 ? '#3D8B37' : '#C62828'} />
       </div>
 
       {/* 탭 */}

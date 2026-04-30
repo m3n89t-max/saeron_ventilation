@@ -284,6 +284,12 @@ export default function SalesPurchase() {
     setPaymentTarget(null);
   };
 
+  const fmt = (v) => {
+    if (v >= 100000000) return `${(v / 100000000).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}억`;
+    if (v >= 10000) return `${Math.floor(v / 10000).toLocaleString('ko-KR')}만`;
+    return v.toLocaleString('ko-KR');
+  };
+
   const payOpts = [{ v: '전체', l: '전체' }, { v: 'paid', l: '완납' }, { v: 'partial', l: '부분수금' }, { v: 'pending', l: '미수금' }];
   const dateKey = isSales ? 'orderDate' : 'purchaseDate';
   const numKey = isSales ? 'orderNumber' : 'purchaseNumber';
@@ -308,9 +314,9 @@ export default function SalesPurchase() {
 
       {/* Stats */}
       <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
-        <StatsCard icon={<FaFileInvoice />} title={isSales ? '총 매출액' : '총 매입액'} value={`₩${(stats.total / 10000).toFixed(0)}만`} sub={`${stats.count}건`} color="#2C5AA0" />
-        <StatsCard icon={<FaShoppingCart />} title="완납" value={`₩${(stats.paid / 10000).toFixed(0)}만`} sub={`${stats.paidCount}건 완납`} color="#3D8B37" />
-        <StatsCard icon={<FaFileInvoice />} title={isSales ? '미수금' : '미지급금'} value={`₩${(stats.unpaid / 10000).toFixed(0)}만`} sub={`${stats.pendingCount}건 미납`} color="#C62828" />
+        <StatsCard icon={<FaFileInvoice />} title={isSales ? '총 매출액' : '총 매입액'} value={`₩${fmt(stats.total)}`} sub={`${stats.count}건`} color="#2C5AA0" />
+        <StatsCard icon={<FaShoppingCart />} title="완납" value={`₩${fmt(stats.paid)}`} sub={`${stats.paidCount}건 완납`} color="#3D8B37" />
+        <StatsCard icon={<FaFileInvoice />} title={isSales ? '미수금' : '미지급금'} value={`₩${fmt(stats.unpaid)}`} sub={`${stats.pendingCount}건 미납`} color="#C62828" />
         <StatsCard icon={<FaBoxes />} title="수금율" value={stats.total > 0 ? `${Math.round((stats.paid / stats.total) * 100)}%` : '0%'} sub="전체 수금 비율" color={stats.total > 0 && stats.paid / stats.total > 0.8 ? '#3D8B37' : '#E65100'} />
       </div>
 

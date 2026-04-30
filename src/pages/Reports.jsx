@@ -100,6 +100,12 @@ export default function Reports() {
     return { totalRevenue, totalPaid, totalPurchase, totalInventoryValue, winRate };
   }, [salesOrders, purchaseOrders, products, quotes]);
 
+  const fmt = (v) => {
+    if (v >= 100000000) return `${(v / 100000000).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}억`;
+    if (v >= 10000) return `${Math.floor(v / 10000).toLocaleString('ko-KR')}만`;
+    return v.toLocaleString('ko-KR');
+  };
+
   const Card = ({ title, children }) => (
     <div style={{ background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '20px' }}>
       <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1A202C', marginBottom: '16px' }}>{title}</h3>
@@ -115,10 +121,10 @@ export default function Reports() {
 
       {/* 전체 KPI */}
       <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
-        <StatsCard icon="₩" title="누적 총 매출" value={`₩${(kpi.totalRevenue / 100000000).toFixed(2)}억`} sub={formatCurrency(kpi.totalRevenue)} color="#3D8B37" />
-        <StatsCard icon="₩" title="누적 총 매입" value={`₩${(kpi.totalPurchase / 100000000).toFixed(2)}억`} sub={formatCurrency(kpi.totalPurchase)} color="#C62828" />
+        <StatsCard icon="₩" title="누적 총 매출" value={`₩${fmt(kpi.totalRevenue)}`} sub={formatCurrency(kpi.totalRevenue)} color="#3D8B37" />
+        <StatsCard icon="₩" title="누적 총 매입" value={`₩${fmt(kpi.totalPurchase)}`} sub={formatCurrency(kpi.totalPurchase)} color="#C62828" />
         <StatsCard icon="%" title="견적 수주율" value={`${kpi.winRate}%`} sub={`총 ${quotes.length}건 중 성사`} color="#2C5AA0" />
-        <StatsCard icon="₩" title="현재 재고 총액" value={`₩${(kpi.totalInventoryValue / 10000).toFixed(0)}만`} sub={formatCurrency(kpi.totalInventoryValue)} color="#6A1B9A" />
+        <StatsCard icon="₩" title="현재 재고 총액" value={`₩${fmt(kpi.totalInventoryValue)}`} sub={formatCurrency(kpi.totalInventoryValue)} color="#6A1B9A" />
       </div>
 
       {/* 매출/비용 추이 */}

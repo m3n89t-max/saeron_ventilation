@@ -67,6 +67,12 @@ export default function Inventory() {
 
   const cats = ['전체', ...productCategories];
 
+  const fmt = (v) => {
+    if (v >= 100000000) return `${(v / 100000000).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}억`;
+    if (v >= 10000) return `${Math.floor(v / 10000).toLocaleString('ko-KR')}만`;
+    return v.toLocaleString('ko-KR');
+  };
+
   return (
     <div className="page-container">
       {/* Header */}
@@ -84,7 +90,7 @@ export default function Inventory() {
       <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
         <StatsCard icon={<FaBoxes />} title="총 제품 수" value={`${stats.total}개`} sub="등록된 제품" color="#2C5AA0" />
         <StatsCard icon={<FaBoxes />} title="총 재고 수량" value={formatNumber(stats.totalQty)} sub="전체 보유수량" color="#3D8B37" />
-        <StatsCard icon={<FaBoxes />} title="재고 총액" value={`₩${(stats.totalValue / 10000).toFixed(0)}만`} sub={formatCurrency(stats.totalValue)} color="#6A1B9A" />
+        <StatsCard icon={<FaBoxes />} title="재고 총액" value={`₩${fmt(stats.totalValue)}`} sub={formatCurrency(stats.totalValue)} color="#6A1B9A" />
         <StatsCard icon={<FaBoxes />} title="부족 재고" value={`${stats.lowStock}개`} sub="최소수량 이하" color={stats.lowStock > 0 ? '#C62828' : '#3D8B37'} />
       </div>
 
