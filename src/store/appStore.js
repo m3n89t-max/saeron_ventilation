@@ -106,9 +106,11 @@ const useAppStore = create(
       otherIncome: OTHER_INCOME,
       customers: CUSTOMERS,
       suppliers: SUPPLIERS,
+      bankBalance: 0,
       productCategories: ['복합환풍기', '일반환풍기', '환기시스템', '제어시스템', '부자재'],
       expenseCategories: ['인건비', '임대료', '차량유지비', '광고홍보비', '통신비', '공과금', '소모품', '기타'],
       otherIncomeCategories: ['설치공사', '유지보수', '기타'],
+      setBankBalance: (amount) => set({ bankBalance: amount }),
 
       // ── 제품/재고 ──────────────────────────────
       addProduct: (p) => {
