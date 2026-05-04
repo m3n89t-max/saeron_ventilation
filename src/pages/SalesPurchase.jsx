@@ -253,6 +253,23 @@ export default function SalesPurchase() {
 
   const [showSummary, setShowSummary] = useState(true);
 
+  const monthSummary = useMemo(() => {
+    const map = {};
+    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
+    orders.forEach((o) => {
+      const d = new Date(o[dateKey]);
+      if (isNaN(d)) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!map[key]) map[key] = { key, label: `${d.getFullYear()}년 ${d.getMonth() + 1}월`, total: 0, paid: 0, count: 0 };
+      map[key].total += o.totalAmount;
+      map[key].paid += o.paidAmount;
+      map[key].count += 1;
+    });
+    return Object.values(map).sort((a, b) => b.key.localeCompare(a.key));
+  }, [orders, isSales]);
+
+  const [showMonthSummary, setShowMonthSummary] = useState(true);
+
   const openAdd = () => {
     setEditOrder(null);
     setFormData(isSales ? { ...EMPTY_SALE, items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] } : { ...EMPTY_PURCHASE, items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] });
@@ -403,6 +420,71 @@ export default function SalesPurchase() {
                     <td className="text-right" style={{ padding: '10px 14px', color: '#1A202C' }}>{formatCurrency(partySummary.reduce((s, p) => s + p.total, 0))}</td>
                     <td className="text-right" style={{ padding: '10px 14px', color: '#3D8B37' }}>{formatCurrency(partySummary.reduce((s, p) => s + p.paid, 0))}</td>
                     <td className="text-right" style={{ padding: '10px 14px', color: '#C62828' }}>{formatCurrency(partySummary.reduce((s, p) => s + (p.total - p.paid), 0))}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 월별 누적 집계 */}
+      {monthSummary.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px', overflow: 'hidden' }}>
+          <div
+            onClick={() => setShowMonthSummary((v) => !v)}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', cursor: 'pointer', borderBottom: showMonthSummary ? '1px solid #E2E8F0' : 'none', background: '#F7FAFC' }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: '700', color: '#2C5AA0' }}>
+              월별 누적 현황 ({monthSummary.length}개월)
+            </span>
+            <span style={{ fontSize: '12px', color: '#718096' }}>{showMonthSummary ? '▲ 접기' : '▼ 펼치기'}</span>
+          </div>
+          {showMonthSummary && (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>월</th>
+                    <th className="text-right">건수</th>
+                    <th className="text-right">총액</th>
+                    <th className="text-right">완납액</th>
+                    <th className="text-right">미지급 잔액</th>
+                    <th className="text-right">수금율</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthSummary.map((m) => {
+                    const unpaid = m.total - m.paid;
+                    const rate = m.total > 0 ? Math.round((m.paid / m.total) * 100) : 0;
+                    return (
+                      <tr key={m.key}>
+                        <td style={{ fontWeight: '700', fontSize: '13px' }}>{m.label}</td>
+                        <td className="text-right" style={{ color: '#718096', fontSize: '13px' }}>{m.count}건</td>
+                        <td className="text-right" style={{ fontWeight: '800', fontSize: '14px' }}>{formatCurrency(m.total)}</td>
+                        <td className="text-right" style={{ color: '#3D8B37', fontWeight: '600' }}>{formatCurrency(m.paid)}</td>
+                        <td className="text-right" style={{ color: unpaid > 0 ? '#C62828' : '#3D8B37', fontWeight: '700' }}>
+                          {unpaid > 0 ? formatCurrency(unpaid) : '완납'}
+                        </td>
+                        <td className="text-right">
+                          <span style={{
+                            display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '700',
+                            background: rate >= 100 ? '#EAF5E9' : rate >= 50 ? '#FFF3E0' : '#FFEBEE',
+                            color: rate >= 100 ? '#3D8B37' : rate >= 50 ? '#E65100' : '#C62828',
+                          }}>{rate}%</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#EBF4FF', fontWeight: '800' }}>
+                    <td style={{ padding: '10px 14px', fontSize: '13px', color: '#2C5AA0' }}>합계</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#2C5AA0' }}>{monthSummary.reduce((s, m) => s + m.count, 0)}건</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#1A202C' }}>{formatCurrency(monthSummary.reduce((s, m) => s + m.total, 0))}</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#3D8B37' }}>{formatCurrency(monthSummary.reduce((s, m) => s + m.paid, 0))}</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#C62828' }}>{formatCurrency(monthSummary.reduce((s, m) => s + (m.total - m.paid), 0))}</td>
                     <td></td>
                   </tr>
                 </tfoot>
