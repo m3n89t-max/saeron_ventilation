@@ -27,8 +27,8 @@ function OrderFormModal({ title, show, onClose, onSubmit, formData, setFormData,
   const removeItem = (idx) => { if (items.length > 1) setFormData({ ...formData, items: items.filter((_, i) => i !== idx) }); };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-box" style={{ maxWidth: '700px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
           <h3 style={{ fontSize: '18px', fontWeight: '700' }}>{title}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#718096', cursor: 'pointer' }}><FaTimes /></button>
@@ -135,8 +135,8 @@ function PaymentModal({ order, isSales, onClose, onConfirm }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-box" style={{ maxWidth: '400px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
           <h3 style={{ fontSize: '17px', fontWeight: '700', color: '#1A202C', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FaMoneyBillWave color="#3D8B37" /> 수금 처리
@@ -422,8 +422,8 @@ export default function SalesPurchase() {
 
       {/* 상세 모달 */}
       {detailOrder && (
-        <div className="modal-overlay" onClick={() => setDetailOrder(null)}>
-          <div className="modal-box" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '580px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E2E8F0' }}>
               <div>
                 <h3 style={{ fontSize: '17px', fontWeight: '700' }}>{detailOrder[numKey]}</h3>

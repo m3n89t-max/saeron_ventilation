@@ -185,8 +185,8 @@ export default function Inventory() {
 
       {/* 제품 등록/수정 모달 */}
       {showProductModal && (
-        <div className="modal-overlay" onClick={() => setShowProductModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-box">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '700' }}>{editProduct ? '제품 수정' : '새 제품 등록'}</h3>
               <button onClick={() => setShowProductModal(false)} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#718096', cursor: 'pointer' }}><FaTimes /></button>
@@ -227,8 +227,8 @@ export default function Inventory() {
 
       {/* 입고/출고 모달 */}
       {showStockModal && stockTarget && (
-        <div className="modal-overlay" onClick={() => setShowStockModal(false)}>
-          <div className="modal-box" style={{ maxWidth: '420px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '420px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
               <h3 style={{ fontSize: '17px', fontWeight: '700', color: stockType === 'in' ? '#3D8B37' : '#C62828' }}>
                 {stockType === 'in' ? '입고 처리' : '출고 처리'}

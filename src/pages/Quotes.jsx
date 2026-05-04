@@ -162,8 +162,8 @@ export default function Quotes() {
 
       {/* 상세보기 모달 */}
       {detailQuote && (
-        <div className="modal-overlay" onClick={() => setDetailQuote(null)}>
-          <div className="modal-box" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '580px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E2E8F0' }}>
               <div>
                 <h3 style={{ fontSize: '17px', fontWeight: '700' }}>{detailQuote.quoteNumber}</h3>
@@ -206,8 +206,8 @@ export default function Quotes() {
 
       {/* 작성/수정 모달 */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-box" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '700px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '700' }}>{editQuote ? '견적 수정' : '견적 작성'}</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#718096', cursor: 'pointer' }}><FaTimes /></button>
