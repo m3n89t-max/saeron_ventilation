@@ -15,8 +15,9 @@ function App() {
   const { _loaded, initSync } = useAppStore();
 
   useEffect(() => {
-    const cleanup = initSync();
-    return cleanup;
+    let cleanup;
+    initSync().then((fn) => { cleanup = fn; });
+    return () => { if (cleanup) cleanup(); };
   }, []);
 
   if (!_loaded) {

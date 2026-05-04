@@ -1,23 +1,22 @@
 import { create } from 'zustand';
-import { db } from '../firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../supabase';
 
 const COLLECTIONS = [
   'products', 'transactions', 'quotes', 'salesOrders',
   'purchaseOrders', 'expenses', 'otherIncome', 'customers', 'suppliers',
 ];
 
-// Firestore 문서: db/saeron/<collection> → { items: [...] }
-const fsDoc = (name) => doc(db, 'saeron', name);
-
-// Firestore에서 받은 업데이트인지 표시 (무한루프 방지)
-let firestoreSyncing = false;
+// Supabase에서 받은 업데이트인지 표시 (무한루프 방지)
+let supabaseSyncing = false;
 const saveTimers = {};
 
 const scheduleWrite = (name, data) => {
   clearTimeout(saveTimers[name]);
   saveTimers[name] = setTimeout(() => {
-    setDoc(fsDoc(name), { items: data }).catch(console.error);
+    supabase
+      .from('app_data')
+      .upsert({ collection: name, items: data }, { onConflict: 'collection' })
+      .then(({ error }) => { if (error) console.error(`Supabase write error [${name}]:`, error); });
   }, 400);
 };
 
@@ -35,30 +34,45 @@ const useAppStore = create((set, get) => ({
 
   // ── 메타 ────────────────────────────────────────────
   _loaded: false,
-  productCategories:      ['복합환풍기', '일반환풍기', '환기시스템', '제어시스템', '부자재'],
-  expenseCategories:      ['인건비', '임대료', '차량유지비', '광고홍보비', '통신비', '공과금', '소모품', '기타'],
-  otherIncomeCategories:  ['설치공사', '유지보수', '기타'],
+  productCategories:     ['복합환풍기', '일반환풍기', '환기시스템', '제어시스템', '부자재'],
+  expenseCategories:     ['인건비', '임대료', '차량유지비', '광고홍보비', '통신비', '공과금', '소모품', '기타'],
+  otherIncomeCategories: ['설치공사', '유지보수', '기타'],
 
-  // ── Firestore 실시간 동기화 시작 ─────────────────────
-  initSync: () => {
-    const loaded = new Set();
-    const unsubs = COLLECTIONS.map((name) =>
-      onSnapshot(
-        fsDoc(name),
-        (snap) => {
-          firestoreSyncing = true;
-          set({ [name]: snap.exists() ? (snap.data().items || []) : [] });
-          firestoreSyncing = false;
-          loaded.add(name);
-          if (loaded.size === COLLECTIONS.length) set({ _loaded: true });
-        },
-        () => {
-          loaded.add(name);
-          if (loaded.size === COLLECTIONS.length) set({ _loaded: true });
+  // ── Supabase 실시간 동기화 시작 ─────────────────────
+  initSync: async () => {
+    // 1. 초기 데이터 로드
+    const { data, error } = await supabase.from('app_data').select('*');
+    if (!error && data) {
+      const update = {};
+      COLLECTIONS.forEach((name) => {
+        const row = data.find((r) => r.collection === name);
+        update[name] = row ? (row.items || []) : [];
+      });
+      supabaseSyncing = true;
+      set({ ...update, _loaded: true });
+      supabaseSyncing = false;
+    } else {
+      set({ _loaded: true });
+    }
+
+    // 2. 실시간 변경 구독 (다른 PC에서 변경 시 즉시 반영)
+    const channel = supabase
+      .channel('app_data_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_data' },
+        (payload) => {
+          const row = payload.new;
+          if (row && COLLECTIONS.includes(row.collection)) {
+            supabaseSyncing = true;
+            set({ [row.collection]: row.items || [] });
+            supabaseSyncing = false;
+          }
         }
       )
-    );
-    return () => unsubs.forEach((u) => u());
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   },
 
   // ── 제품/재고 ──────────────────────────────────────
@@ -109,8 +123,8 @@ const useAppStore = create((set, get) => ({
     set((s) => ({ salesOrders: [n, ...s.salesOrders] }));
     return n;
   },
-  updateSalesOrder: (id, upd) => set((s) => ({ salesOrders: s.salesOrders.map((o) => o.id === id ? { ...o, ...upd } : o) })),
-  deleteSalesOrder: (id) => set((s) => ({ salesOrders: s.salesOrders.filter((o) => o.id !== id) })),
+  updateSalesOrder:  (id, upd) => set((s) => ({ salesOrders: s.salesOrders.map((o) => o.id === id ? { ...o, ...upd } : o) })),
+  deleteSalesOrder:  (id) => set((s) => ({ salesOrders: s.salesOrders.filter((o) => o.id !== id) })),
 
   // ── 매입 ───────────────────────────────────────────
   addPurchaseOrder: (o) => {
@@ -119,14 +133,14 @@ const useAppStore = create((set, get) => ({
     set((s) => ({ purchaseOrders: [n, ...s.purchaseOrders] }));
     return n;
   },
-  updatePurchaseOrder: (id, upd) => set((s) => ({ purchaseOrders: s.purchaseOrders.map((o) => o.id === id ? { ...o, ...upd } : o) })),
-  deletePurchaseOrder: (id) => set((s) => ({ purchaseOrders: s.purchaseOrders.filter((o) => o.id !== id) })),
+  updatePurchaseOrder:  (id, upd) => set((s) => ({ purchaseOrders: s.purchaseOrders.map((o) => o.id === id ? { ...o, ...upd } : o) })),
+  deletePurchaseOrder:  (id) => set((s) => ({ purchaseOrders: s.purchaseOrders.filter((o) => o.id !== id) })),
 
   // ── 지출/수입 ──────────────────────────────────────
-  addExpense:      (e) => { set((s) => ({ expenses: [{ ...e, id: Date.now() }, ...s.expenses] })); },
-  deleteExpense:   (id) => set((s) => ({ expenses: s.expenses.filter((e) => e.id !== id) })),
-  addOtherIncome:  (i) => { set((s) => ({ otherIncome: [{ ...i, id: Date.now() }, ...s.otherIncome] })); },
-  deleteOtherIncome: (id) => set((s) => ({ otherIncome: s.otherIncome.filter((i) => i.id !== id) })),
+  addExpense:        (e) => { set((s) => ({ expenses:    [{ ...e, id: Date.now() }, ...s.expenses]    })); },
+  deleteExpense:     (id) => set((s) => ({ expenses:    s.expenses.filter((e) => e.id !== id)         })),
+  addOtherIncome:    (i) => { set((s) => ({ otherIncome: [{ ...i, id: Date.now() }, ...s.otherIncome] })); },
+  deleteOtherIncome: (id) => set((s) => ({ otherIncome: s.otherIncome.filter((i) => i.id !== id)      })),
 
   // ── 거래처/공급업체 ────────────────────────────────
   addCustomer: (c) => {
@@ -147,10 +161,10 @@ const useAppStore = create((set, get) => ({
   deleteSupplier: (id) => set((s) => ({ suppliers: s.suppliers.filter((s2) => s2.id !== id) })),
 
   // ── 계산 헬퍼 ─────────────────────────────────────
-  getLowStockProducts:     () => get().products.filter((p) => p.quantity <= p.minQuantity),
-  getTotalInventoryValue:  () => get().products.reduce((s, p) => s + p.quantity * p.salePrice, 0),
-  getTotalUnpaidReceivable:() => get().salesOrders.reduce((s, o) => s + (o.totalAmount - o.paidAmount), 0),
-  getTotalUnpaidPayable:   () => get().purchaseOrders.reduce((s, o) => s + (o.totalAmount - o.paidAmount), 0),
+  getLowStockProducts:      () => get().products.filter((p) => p.quantity <= p.minQuantity),
+  getTotalInventoryValue:   () => get().products.reduce((s, p) => s + p.quantity * p.salePrice, 0),
+  getTotalUnpaidReceivable: () => get().salesOrders.reduce((s, o) => s + (o.totalAmount - o.paidAmount), 0),
+  getTotalUnpaidPayable:    () => get().purchaseOrders.reduce((s, o) => s + (o.totalAmount - o.paidAmount), 0),
 
   getCalculatedBankBalance: () => {
     const s = get();
@@ -185,9 +199,9 @@ const useAppStore = create((set, get) => ({
   },
 }));
 
-// 상태 변경 시 Firestore에 자동 저장 (Firestore에서 받은 업데이트는 제외)
+// 상태 변경 감지 → Supabase에 자동 저장 (Supabase에서 받은 업데이트는 제외)
 useAppStore.subscribe((state, prevState) => {
-  if (firestoreSyncing || !state._loaded) return;
+  if (supabaseSyncing || !state._loaded) return;
   for (const name of COLLECTIONS) {
     if (state[name] !== prevState[name]) {
       scheduleWrite(name, state[name]);
