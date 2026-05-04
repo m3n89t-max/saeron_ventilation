@@ -57,31 +57,11 @@ const useAppStore = create((set, get) => ({
 
     await loadAll();
 
-    // 실시간 구독 (WebSocket - 즉시 반영)
-    const channel = supabase
-      .channel('app_data_realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_data' },
-        (payload) => {
-          const row = payload.new;
-          if (row && COLLECTIONS.includes(row.collection)) {
-            supabaseSyncing = true;
-            set({ [row.collection]: row.items || [] });
-            supabaseSyncing = false;
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('[Supabase Realtime]', status);
-      });
-
-    // 폴링 백업 - 5초마다 강제 동기화 (실시간이 안 될 때 대비)
-    const pollTimer = setInterval(loadAll, 5000);
+    // 3초마다 폴링 동기화
+    const pollTimer = setInterval(loadAll, 3000);
 
     return () => {
       clearInterval(pollTimer);
-      supabase.removeChannel(channel);
     };
   },
 
