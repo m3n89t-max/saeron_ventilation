@@ -270,6 +270,33 @@ export default function SalesPurchase() {
 
   const [showMonthSummary, setShowMonthSummary] = useState(true);
 
+  const pivotData = useMemo(() => {
+    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
+    const nameKey = isSales ? 'customerName' : 'supplierName';
+    const monthSet = new Set();
+    const partySet = new Set();
+    const cells = {};
+    orders.forEach((o) => {
+      const d = new Date(o[dateKey]);
+      if (isNaN(d)) return;
+      const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const mLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+      const name = o[nameKey];
+      if (!name) return;
+      monthSet.add(JSON.stringify({ key: mKey, label: mLabel }));
+      partySet.add(name);
+      const cellKey = `${name}__${mKey}`;
+      if (!cells[cellKey]) cells[cellKey] = { total: 0, paid: 0 };
+      cells[cellKey].total += o.totalAmount;
+      cells[cellKey].paid += o.paidAmount;
+    });
+    const months = [...monthSet].map((s) => JSON.parse(s)).sort((a, b) => a.key.localeCompare(b.key));
+    const parties = [...partySet].sort();
+    return { months, parties, cells };
+  }, [orders, isSales]);
+
+  const [showPivot, setShowPivot] = useState(true);
+
   const openAdd = () => {
     setEditOrder(null);
     setFormData(isSales ? { ...EMPTY_SALE, items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] } : { ...EMPTY_PURCHASE, items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] });
@@ -486,6 +513,84 @@ export default function SalesPurchase() {
                     <td className="text-right" style={{ padding: '10px 14px', color: '#3D8B37' }}>{formatCurrency(monthSummary.reduce((s, m) => s + m.paid, 0))}</td>
                     <td className="text-right" style={{ padding: '10px 14px', color: '#C62828' }}>{formatCurrency(monthSummary.reduce((s, m) => s + (m.total - m.paid), 0))}</td>
                     <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 거래처×월별 피벗 테이블 */}
+      {pivotData.parties.length > 0 && pivotData.months.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px', overflow: 'hidden' }}>
+          <div
+            onClick={() => setShowPivot((v) => !v)}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', cursor: 'pointer', borderBottom: showPivot ? '1px solid #E2E8F0' : 'none', background: '#F7FAFC' }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: '700', color: '#2C5AA0' }}>
+              {isSales ? '거래처' : '공급업체'}별 월별 상세 현황
+            </span>
+            <span style={{ fontSize: '12px', color: '#718096' }}>{showPivot ? '▲ 접기' : '▼ 펼치기'}</span>
+          </div>
+          {showPivot && (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" style={{ minWidth: `${200 + pivotData.months.length * 160 + 130}px` }}>
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: '120px' }}>{isSales ? '거래처' : '공급업체'}</th>
+                    {pivotData.months.map((m) => (
+                      <th key={m.key} className="text-right" style={{ minWidth: '140px' }}>{m.label}</th>
+                    ))}
+                    <th className="text-right" style={{ minWidth: '130px', background: '#EBF4FF', color: '#2C5AA0' }}>합계</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pivotData.parties.map((name) => {
+                    const rowTotal = pivotData.months.reduce((s, m) => s + (pivotData.cells[`${name}__${m.key}`]?.total || 0), 0);
+                    const rowPaid  = pivotData.months.reduce((s, m) => s + (pivotData.cells[`${name}__${m.key}`]?.paid  || 0), 0);
+                    const rowUnpaid = rowTotal - rowPaid;
+                    return (
+                      <tr key={name}>
+                        <td style={{ fontWeight: '700', fontSize: '13px' }}>{name}</td>
+                        {pivotData.months.map((m) => {
+                          const cell = pivotData.cells[`${name}__${m.key}`];
+                          const unpaid = cell ? cell.total - cell.paid : 0;
+                          return (
+                            <td key={m.key} className="text-right" style={{ verticalAlign: 'top' }}>
+                              {cell ? (
+                                <div>
+                                  <div style={{ fontWeight: '700', fontSize: '13px' }}>{formatCurrency(cell.total)}</div>
+                                  {unpaid > 0
+                                    ? <div style={{ fontSize: '11px', color: '#C62828', marginTop: '2px' }}>미지급 {formatCurrency(unpaid)}</div>
+                                    : <div style={{ fontSize: '11px', color: '#3D8B37', marginTop: '2px' }}>완납</div>}
+                                </div>
+                              ) : <span style={{ color: '#CBD5E0', fontSize: '12px' }}>-</span>}
+                            </td>
+                          );
+                        })}
+                        <td className="text-right" style={{ background: '#F7FBFF', verticalAlign: 'top' }}>
+                          <div style={{ fontWeight: '800', fontSize: '13px', color: '#1A202C' }}>{formatCurrency(rowTotal)}</div>
+                          {rowUnpaid > 0
+                            ? <div style={{ fontSize: '11px', color: '#C62828', marginTop: '2px' }}>미지급 {formatCurrency(rowUnpaid)}</div>
+                            : <div style={{ fontSize: '11px', color: '#3D8B37', marginTop: '2px' }}>완납</div>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#EBF4FF', fontWeight: '800' }}>
+                    <td style={{ padding: '10px 14px', fontSize: '13px', color: '#2C5AA0' }}>월 합계</td>
+                    {pivotData.months.map((m) => {
+                      const colTotal = pivotData.parties.reduce((s, name) => s + (pivotData.cells[`${name}__${m.key}`]?.total || 0), 0);
+                      return (
+                        <td key={m.key} className="text-right" style={{ padding: '10px 14px', color: '#1A202C' }}>{formatCurrency(colTotal)}</td>
+                      );
+                    })}
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#2C5AA0' }}>
+                      {formatCurrency(pivotData.parties.reduce((s, name) => s + pivotData.months.reduce((ss, m) => ss + (pivotData.cells[`${name}__${m.key}`]?.total || 0), 0), 0))}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
