@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   FaMoneyBillWave, FaShoppingCart, FaBoxes, FaFileAlt,
   FaExclamationTriangle, FaArrowRight, FaChartLine,
-  FaCreditCard, FaWarehouse, FaUniversity, FaPen, FaCheck, FaTimes,
+  FaCreditCard, FaWarehouse, FaUniversity,
   FaChevronLeft, FaChevronRight,
 } from 'react-icons/fa';
 import {
@@ -22,8 +22,9 @@ const Dashboard = () => {
     expenses, otherIncome, getLowStockProducts,
     getTotalInventoryValue, getTotalUnpaidReceivable, getTotalUnpaidPayable,
     getMonthSalesRevenue, getMonthPurchaseCost, getMonthOpExpense,
-    bankBalance, setBankBalance,
+    getCalculatedBankBalance,
   } = useAppStore();
+  const bankBalance = getCalculatedBankBalance();
 
   const now = new Date();
   const cy = now.getFullYear(), cm = now.getMonth() + 1;
@@ -73,13 +74,6 @@ const Dashboard = () => {
     setViewMode(mode);
     setViewYear(cy); setViewMonth(cm); setViewQuarter(currentQuarter);
   };
-
-  // 통장잔고 편집
-  const [editingBalance, setEditingBalance] = useState(false);
-  const [balanceInput, setBalanceInput] = useState('');
-  const startEdit = () => { setBalanceInput(bankBalance > 0 ? String(bankBalance) : ''); setEditingBalance(true); };
-  const saveBalance = () => { const v = parseInt(balanceInput.replace(/[^0-9]/g, ''), 10); if (!isNaN(v) && v >= 0) setBankBalance(v); setEditingBalance(false); };
-  const cancelEdit = () => setEditingBalance(false);
 
   const fmt = (v) => {
     if (v >= 100000000) return `${(v / 100000000).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}억`;
@@ -256,34 +250,16 @@ const Dashboard = () => {
             <FaUniversity size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: '600', opacity: 0.75, marginBottom: '4px' }}>현재 통장 잔고</div>
-            {editingBalance ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
-                  type="text"
-                  value={balanceInput}
-                  onChange={(e) => setBalanceInput(e.target.value.replace(/[^0-9]/g, ''))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') saveBalance(); if (e.key === 'Escape') cancelEdit(); }}
-                  placeholder="금액 입력 (원)"
-                  autoFocus
-                  style={{ fontSize: '20px', fontWeight: '800', background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: '7px', color: '#fff', padding: '4px 10px', width: '180px', outline: 'none' }}
-                />
-                <button onClick={saveBalance} style={{ background: '#48BB78', border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center' }}><FaCheck size={13} /></button>
-                <button onClick={cancelEdit} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center' }}><FaTimes size={13} /></button>
-              </div>
-            ) : (
-              <div style={{ fontSize: '30px', fontWeight: '900', letterSpacing: '-0.5px' }}>
-                ₩{fmt(bankBalance)}
-                <span style={{ fontSize: '13px', fontWeight: '400', opacity: 0.7, marginLeft: '8px' }}>({bankBalance.toLocaleString('ko-KR')}원)</span>
-              </div>
-            )}
+            <div style={{ fontSize: '13px', fontWeight: '600', opacity: 0.75, marginBottom: '4px' }}>현재 통장 잔고 (자동 계산)</div>
+            <div style={{ fontSize: '30px', fontWeight: '900', letterSpacing: '-0.5px' }}>
+              ₩{fmt(bankBalance)}
+              <span style={{ fontSize: '13px', fontWeight: '400', opacity: 0.7, marginLeft: '8px' }}>({bankBalance.toLocaleString('ko-KR')}원)</span>
+            </div>
           </div>
         </div>
-        {!editingBalance && (
-          <button onClick={startEdit} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', padding: '10px 18px', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <FaPen size={11} /> 잔고 수정
-          </button>
-        )}
+        <div style={{ fontSize: '12px', opacity: 0.65, textAlign: 'right', lineHeight: '1.6' }}>
+          매출수금 + 기타수입<br />− 매입지급 − 운영지출
+        </div>
       </div>
 
       {/* KPI 카드 행 1 */}

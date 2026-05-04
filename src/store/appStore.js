@@ -106,11 +106,18 @@ const useAppStore = create(
       otherIncome: OTHER_INCOME,
       customers: CUSTOMERS,
       suppliers: SUPPLIERS,
-      bankBalance: 0,
       productCategories: ['복합환풍기', '일반환풍기', '환기시스템', '제어시스템', '부자재'],
       expenseCategories: ['인건비', '임대료', '차량유지비', '광고홍보비', '통신비', '공과금', '소모품', '기타'],
       otherIncomeCategories: ['설치공사', '유지보수', '기타'],
-      setBankBalance: (amount) => set({ bankBalance: amount }),
+      // 통장잔고 자동 계산 (매출수금 + 기타수입 - 매입지급 - 운영지출)
+      getCalculatedBankBalance: () => {
+        const s = get();
+        const income = s.salesOrders.reduce((sum, o) => sum + (o.paidAmount || 0), 0)
+          + s.otherIncome.reduce((sum, i) => sum + (i.amount || 0), 0);
+        const expense = s.purchaseOrders.reduce((sum, o) => sum + (o.paidAmount || 0), 0)
+          + s.expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+        return income - expense;
+      },
 
       // ── 제품/재고 ──────────────────────────────
       addProduct: (p) => {
@@ -221,7 +228,7 @@ const useAppStore = create(
       resetAll: () => {
         set({
           products: [], transactions: [], quotes: [], salesOrders: [], purchaseOrders: [],
-          expenses: [], otherIncome: [], customers: [], suppliers: [], bankBalance: 0,
+          expenses: [], otherIncome: [], customers: [], suppliers: [],
         });
       },
     }),
