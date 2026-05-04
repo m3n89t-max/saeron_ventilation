@@ -8,8 +8,8 @@ import {
   getOrderStatusLabel, getOrderStatusClass,
 } from '../utils/formatters';
 
-const EMPTY_SALE = { customerName: '', items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }], totalAmount: 0, paidAmount: 0, deliveryDate: '', paymentMethod: '계좌이체', note: '', user: '김영업' };
-const EMPTY_PURCHASE = { supplierName: '', items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }], totalAmount: 0, paidAmount: 0, expectedDate: '', paymentMethod: '세금계산서', note: '', user: '최관리' };
+const EMPTY_SALE = { customerName: '', items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }], totalAmount: 0, paidAmount: '', deliveryDate: '', paymentMethod: '계좌이체', note: '', user: '김영업' };
+const EMPTY_PURCHASE = { supplierName: '', items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }], totalAmount: 0, paidAmount: '', expectedDate: '', paymentMethod: '세금계산서', note: '', user: '최관리' };
 
 const PAYMENT_METHODS = ['계좌이체', '세금계산서', '현금', '카드', '미정'];
 
@@ -34,12 +34,13 @@ function OrderFormModal({ title, show, onClose, onSubmit, formData, setFormData,
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#718096', cursor: 'pointer' }}><FaTimes /></button>
         </div>
         {isError && <div style={{ background: '#FFEBEE', color: '#C62828', padding: '10px 14px', borderRadius: '7px', marginBottom: '14px', fontSize: '13px' }}>{errorMsg}</div>}
-        <form onSubmit={onSubmit}>
+        <form onSubmit={onSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') e.preventDefault(); }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             {Object.entries(formData).filter(([k]) => !['items', 'totalAmount'].includes(k)).map(([k, v]) => {
               const labels = { customerName: '거래처명 *', supplierName: '공급업체명 *', paidAmount: '수금액 (원)', deliveryDate: '납품일', expectedDate: '입고 예정일', paymentMethod: '결제방법', note: '비고', user: '담당자' };
               const label = labels[k] || k;
-              const type = k.includes('Amount') ? 'number' : k.includes('Date') ? 'date' : 'text';
+              const isAmount = k.includes('Amount');
+              const type = isAmount ? 'text' : k.includes('Date') ? 'date' : 'text';
               if (k === 'paymentMethod') return (
                 <div key={k}><label className="form-label">{label}</label>
                   <select className="form-input" value={v} onChange={(e) => setFormData({ ...formData, [k]: e.target.value })}>
@@ -51,7 +52,18 @@ function OrderFormModal({ title, show, onClose, onSubmit, formData, setFormData,
               return (
                 <div key={k} style={isName ? { gridColumn: '1 / -1' } : {}}>
                   <label className="form-label">{label}</label>
-                  <input className="form-input" type={type} value={v} onChange={(e) => setFormData({ ...formData, [k]: type === 'number' ? (parseInt(e.target.value) || 0) : e.target.value })} placeholder={isName ? '거래처/업체명 입력' : ''} />
+                  <input
+                    className="form-input"
+                    type={type}
+                    inputMode={isAmount ? 'numeric' : undefined}
+                    value={v}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const val = isAmount ? raw.replace(/[^0-9]/g, '') : raw;
+                      setFormData({ ...formData, [k]: val });
+                    }}
+                    placeholder={isName ? '거래처/업체명 입력' : isAmount ? '0' : ''}
+                  />
                 </div>
               );
             })}
@@ -241,7 +253,7 @@ export default function SalesPurchase() {
       [nameKey]: o[nameKey] || '',
       items: (o.items || []).map((i) => ({ ...i })),
       totalAmount: o.totalAmount,
-      paidAmount: o.paidAmount,
+      paidAmount: String(o.paidAmount || ''),
       [dateKey]: o[dateKey] ? new Date(o[dateKey]).toISOString().split('T')[0] : '',
       paymentMethod: o.paymentMethod || '계좌이체',
       note: o.note || '',
@@ -257,7 +269,7 @@ export default function SalesPurchase() {
     if (!formData[nameKey]?.trim()) return setErr(`${isSales ? '거래처' : '공급업체'}명을 입력하세요.`);
     const totalAmount = (formData.items || []).reduce((s, i) => s + (i.total || 0), 0);
     const paidAmount = Math.min(parseInt(formData.paidAmount) || 0, totalAmount);
-    const paymentStatus = paidAmount >= totalAmount ? 'paid' : paidAmount > 0 ? 'partial' : 'pending';
+    const paymentStatus = totalAmount === 0 ? 'pending' : paidAmount >= totalAmount ? 'paid' : paidAmount > 0 ? 'partial' : 'pending';
     const payload = { ...formData, totalAmount, paidAmount, paymentStatus };
     if (editOrder) {
       isSales ? updateSalesOrder(editOrder.id, payload) : updatePurchaseOrder(editOrder.id, payload);
