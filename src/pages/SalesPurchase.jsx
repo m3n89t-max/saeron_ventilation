@@ -401,22 +401,51 @@ export default function SalesPurchase() {
         ))}
       </div>
 
-      {/* 월 선택 바 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
-        <span style={{ fontSize: '12px', color: '#718096', fontWeight: '700', whiteSpace: 'nowrap' }}>조회 월:</span>
-        {availableMonths.map((m) => {
-          const label = m === '전체' ? '전체' : (() => { const [y, mo] = m.split('-'); return `${y}년 ${parseInt(mo)}월`; })();
-          return (
-            <button key={m} onClick={() => setMonthFilter(m)}
-              style={{ padding: '5px 14px', border: '1.5px solid', borderRadius: '20px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
-                background: monthFilter === m ? '#2C5AA0' : '#fff',
-                color: monthFilter === m ? '#fff' : '#4A5568',
-                borderColor: monthFilter === m ? '#2C5AA0' : '#E2E8F0' }}>
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      {/* 월 선택 캘린더 */}
+      {(() => {
+        const selYear = monthFilter === '전체' ? now.getFullYear() : parseInt(monthFilter.split('-')[0]);
+        const selMon  = monthFilter === '전체' ? null : parseInt(monthFilter.split('-')[1]);
+        const years = [];
+        for (let y = now.getFullYear() - 3; y <= now.getFullYear() + 1; y++) years.push(y);
+        return (
+          <div style={{ background: '#fff', borderRadius: '10px', padding: '14px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <button onClick={() => setMonthFilter('전체')}
+                style={{ padding: '5px 14px', border: '1.5px solid', borderRadius: '20px', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                  background: monthFilter === '전체' ? '#718096' : '#fff', color: monthFilter === '전체' ? '#fff' : '#718096', borderColor: '#718096' }}>
+                전체
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button onClick={() => { const y = monthFilter === '전체' ? now.getFullYear() : parseInt(monthFilter.split('-')[0]); const m = monthFilter === '전체' ? now.getMonth() + 1 : parseInt(monthFilter.split('-')[1]); const d = new Date(y, m - 2, 1); setMonthFilter(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); }}
+                  style={{ width: '28px', height: '28px', border: '1.5px solid #E2E8F0', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+                <select value={monthFilter === '전체' ? now.getFullYear() : selYear}
+                  onChange={(e) => { const mo = selMon || (now.getMonth() + 1); setMonthFilter(`${e.target.value}-${String(mo).padStart(2, '0')}`); }}
+                  style={{ border: '1.5px solid #E2E8F0', borderRadius: '6px', padding: '4px 8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                  {years.map((y) => <option key={y} value={y}>{y}년</option>)}
+                </select>
+                <button onClick={() => { const y = monthFilter === '전체' ? now.getFullYear() : parseInt(monthFilter.split('-')[0]); const m = monthFilter === '전체' ? now.getMonth() + 1 : parseInt(monthFilter.split('-')[1]); const d = new Date(y, m, 1); setMonthFilter(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); }}
+                  style={{ width: '28px', height: '28px', border: '1.5px solid #E2E8F0', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map((mo) => {
+                  const key = `${monthFilter === '전체' ? now.getFullYear() : selYear}-${String(mo).padStart(2, '0')}`;
+                  const isSelected = monthFilter === key;
+                  const isToday = mo === (now.getMonth() + 1) && (monthFilter === '전체' ? now.getFullYear() : selYear) === now.getFullYear();
+                  return (
+                    <button key={mo} onClick={() => setMonthFilter(key)}
+                      style={{ width: '42px', height: '34px', border: '1.5px solid', borderRadius: '7px', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                        background: isSelected ? '#2C5AA0' : '#fff',
+                        color: isSelected ? '#fff' : isToday ? '#2C5AA0' : '#4A5568',
+                        borderColor: isSelected ? '#2C5AA0' : isToday ? '#2C5AA0' : '#E2E8F0' }}>
+                      {mo}월
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stats */}
       <div className="stats-grid-4" style={{ marginBottom: '20px' }}>
