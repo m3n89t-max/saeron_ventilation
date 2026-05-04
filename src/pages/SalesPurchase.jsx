@@ -238,6 +238,21 @@ export default function SalesPurchase() {
     return { total, paid, unpaid, paidCount, pendingCount, count: orders.length };
   }, [orders]);
 
+  const partySummary = useMemo(() => {
+    const map = {};
+    orders.forEach((o) => {
+      const name = isSales ? o.customerName : o.supplierName;
+      if (!name) return;
+      if (!map[name]) map[name] = { name, total: 0, paid: 0, count: 0 };
+      map[name].total += o.totalAmount;
+      map[name].paid += o.paidAmount;
+      map[name].count += 1;
+    });
+    return Object.values(map).sort((a, b) => b.total - a.total);
+  }, [orders, isSales]);
+
+  const [showSummary, setShowSummary] = useState(true);
+
   const openAdd = () => {
     setEditOrder(null);
     setFormData(isSales ? { ...EMPTY_SALE, items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] } : { ...EMPTY_PURCHASE, items: [{ productName: '', quantity: 1, unitPrice: 0, total: 0 }] });
@@ -331,6 +346,71 @@ export default function SalesPurchase() {
         <StatsCard icon={<FaFileInvoice />} title={isSales ? '미수금' : '미지급금'} value={`₩${fmt(stats.unpaid)}`} sub={`${stats.pendingCount}건 미납`} color="#C62828" />
         <StatsCard icon={<FaBoxes />} title="수금율" value={stats.total > 0 ? `${Math.round((stats.paid / stats.total) * 100)}%` : '0%'} sub="전체 수금 비율" color={stats.total > 0 && stats.paid / stats.total > 0.8 ? '#3D8B37' : '#E65100'} />
       </div>
+
+      {/* 거래처/공급업체별 누적 집계 */}
+      {partySummary.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px', overflow: 'hidden' }}>
+          <div
+            onClick={() => setShowSummary((v) => !v)}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', cursor: 'pointer', borderBottom: showSummary ? '1px solid #E2E8F0' : 'none', background: '#F7FAFC' }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: '700', color: '#2C5AA0' }}>
+              {isSales ? '거래처' : '공급업체'}별 누적 현황 ({partySummary.length}개사)
+            </span>
+            <span style={{ fontSize: '12px', color: '#718096' }}>{showSummary ? '▲ 접기' : '▼ 펼치기'}</span>
+          </div>
+          {showSummary && (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{isSales ? '거래처명' : '공급업체명'}</th>
+                    <th className="text-right">거래건수</th>
+                    <th className="text-right">누적 총액</th>
+                    <th className="text-right">완납액</th>
+                    <th className="text-right">미지급 잔액</th>
+                    <th className="text-right">수금율</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partySummary.map((p) => {
+                    const unpaid = p.total - p.paid;
+                    const rate = p.total > 0 ? Math.round((p.paid / p.total) * 100) : 0;
+                    return (
+                      <tr key={p.name}>
+                        <td style={{ fontWeight: '700', fontSize: '13px' }}>{p.name}</td>
+                        <td className="text-right" style={{ color: '#718096', fontSize: '13px' }}>{p.count}건</td>
+                        <td className="text-right" style={{ fontWeight: '800', fontSize: '14px' }}>{formatCurrency(p.total)}</td>
+                        <td className="text-right" style={{ color: '#3D8B37', fontWeight: '600' }}>{formatCurrency(p.paid)}</td>
+                        <td className="text-right" style={{ color: unpaid > 0 ? '#C62828' : '#3D8B37', fontWeight: '700' }}>
+                          {unpaid > 0 ? formatCurrency(unpaid) : '완납'}
+                        </td>
+                        <td className="text-right">
+                          <span style={{
+                            display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '700',
+                            background: rate >= 100 ? '#EAF5E9' : rate >= 50 ? '#FFF3E0' : '#FFEBEE',
+                            color: rate >= 100 ? '#3D8B37' : rate >= 50 ? '#E65100' : '#C62828',
+                          }}>{rate}%</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#EBF4FF', fontWeight: '800' }}>
+                    <td style={{ padding: '10px 14px', fontSize: '13px', color: '#2C5AA0' }}>합계</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#2C5AA0' }}>{partySummary.reduce((s, p) => s + p.count, 0)}건</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#1A202C' }}>{formatCurrency(partySummary.reduce((s, p) => s + p.total, 0))}</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#3D8B37' }}>{formatCurrency(partySummary.reduce((s, p) => s + p.paid, 0))}</td>
+                    <td className="text-right" style={{ padding: '10px 14px', color: '#C62828' }}>{formatCurrency(partySummary.reduce((s, p) => s + (p.total - p.paid), 0))}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter */}
       <div style={{ background: '#fff', borderRadius: '10px', padding: '14px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px' }}>
