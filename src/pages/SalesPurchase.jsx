@@ -222,30 +222,30 @@ export default function SalesPurchase() {
   const isSales = tab === 'sales';
   const orders = isSales ? salesOrders : purchaseOrders;
 
+  const filterDateKey = isSales ? 'orderDate' : 'expectedDate';
+
   const availableMonths = useMemo(() => {
-    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
     const set = new Set();
     orders.forEach((o) => {
-      const d = new Date(o[dateKey]);
+      const d = new Date(o[filterDateKey]);
       if (!isNaN(d)) set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     });
     return ['전체', ...[...set].sort((a, b) => b.localeCompare(a))];
-  }, [orders, isSales]);
+  }, [orders, filterDateKey]);
 
   const filtered = useMemo(() => {
     const nameKey = isSales ? 'customerName' : 'supplierName';
     const numKey = isSales ? 'orderNumber' : 'purchaseNumber';
-    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
     return orders.filter((o) => {
       const matchSearch = (o[nameKey] || '').toLowerCase().includes(search.toLowerCase()) || (o[numKey] || '').toLowerCase().includes(search.toLowerCase());
       const matchPay = payFilter === '전체' || o.paymentStatus === payFilter;
       const matchMonth = monthFilter === '전체' || (() => {
-        const d = new Date(o[dateKey]);
+        const d = new Date(o[filterDateKey]);
         return !isNaN(d) && `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
       })();
       return matchSearch && matchPay && matchMonth;
-    }).sort((a, b) => new Date(b[isSales ? 'orderDate' : 'purchaseDate']) - new Date(a[isSales ? 'orderDate' : 'purchaseDate']));
-  }, [orders, search, payFilter, monthFilter, isSales]);
+    }).sort((a, b) => new Date(b[filterDateKey]) - new Date(a[filterDateKey]));
+  }, [orders, search, payFilter, monthFilter, filterDateKey]);
 
   const stats = useMemo(() => {
     const total = filtered.reduce((s, o) => s + o.totalAmount, 0);
@@ -273,9 +273,8 @@ export default function SalesPurchase() {
 
   const monthSummary = useMemo(() => {
     const map = {};
-    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
     orders.forEach((o) => {
-      const d = new Date(o[dateKey]);
+      const d = new Date(o[filterDateKey]);
       if (isNaN(d)) return;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!map[key]) map[key] = { key, label: `${d.getFullYear()}년 ${d.getMonth() + 1}월`, total: 0, paid: 0, count: 0 };
@@ -284,18 +283,17 @@ export default function SalesPurchase() {
       map[key].count += 1;
     });
     return Object.values(map).sort((a, b) => b.key.localeCompare(a.key));
-  }, [orders, isSales]);
+  }, [orders, filterDateKey]);
 
   const [showMonthSummary, setShowMonthSummary] = useState(true);
 
   const pivotData = useMemo(() => {
-    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
     const nameKey = isSales ? 'customerName' : 'supplierName';
     const monthSet = new Set();
     const partySet = new Set();
     const cells = {};
     orders.forEach((o) => {
-      const d = new Date(o[dateKey]);
+      const d = new Date(o[filterDateKey]);
       if (isNaN(d)) return;
       const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const mLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
@@ -311,7 +309,7 @@ export default function SalesPurchase() {
     const months = [...monthSet].map((s) => JSON.parse(s)).sort((a, b) => a.key.localeCompare(b.key));
     const parties = [...partySet].sort();
     return { months, parties, cells };
-  }, [orders, isSales]);
+  }, [orders, filterDateKey, isSales]);
 
   const [showPivot, setShowPivot] = useState(true);
 
@@ -511,71 +509,6 @@ export default function SalesPurchase() {
                     <td className="text-right" style={{ padding: '10px 14px', color: '#1A202C' }}>{formatCurrency(partySummary.reduce((s, p) => s + p.total, 0))}</td>
                     <td className="text-right" style={{ padding: '10px 14px', color: '#3D8B37' }}>{formatCurrency(partySummary.reduce((s, p) => s + p.paid, 0))}</td>
                     <td className="text-right" style={{ padding: '10px 14px', color: '#C62828' }}>{formatCurrency(partySummary.reduce((s, p) => s + (p.total - p.paid), 0))}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 월별 누적 집계 */}
-      {monthSummary.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px', overflow: 'hidden' }}>
-          <div
-            onClick={() => setShowMonthSummary((v) => !v)}
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', cursor: 'pointer', borderBottom: showMonthSummary ? '1px solid #E2E8F0' : 'none', background: '#F7FAFC' }}
-          >
-            <span style={{ fontSize: '13px', fontWeight: '700', color: '#2C5AA0' }}>
-              월별 누적 현황 ({monthSummary.length}개월)
-            </span>
-            <span style={{ fontSize: '12px', color: '#718096' }}>{showMonthSummary ? '▲ 접기' : '▼ 펼치기'}</span>
-          </div>
-          {showMonthSummary && (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>월</th>
-                    <th className="text-right">건수</th>
-                    <th className="text-right">총액</th>
-                    <th className="text-right">완납액</th>
-                    <th className="text-right">미지급 잔액</th>
-                    <th className="text-right">수금율</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthSummary.map((m) => {
-                    const unpaid = m.total - m.paid;
-                    const rate = m.total > 0 ? Math.round((m.paid / m.total) * 100) : 0;
-                    return (
-                      <tr key={m.key}>
-                        <td style={{ fontWeight: '700', fontSize: '13px' }}>{m.label}</td>
-                        <td className="text-right" style={{ color: '#718096', fontSize: '13px' }}>{m.count}건</td>
-                        <td className="text-right" style={{ fontWeight: '800', fontSize: '14px' }}>{formatCurrency(m.total)}</td>
-                        <td className="text-right" style={{ color: '#3D8B37', fontWeight: '600' }}>{formatCurrency(m.paid)}</td>
-                        <td className="text-right" style={{ color: unpaid > 0 ? '#C62828' : '#3D8B37', fontWeight: '700' }}>
-                          {unpaid > 0 ? formatCurrency(unpaid) : '완납'}
-                        </td>
-                        <td className="text-right">
-                          <span style={{
-                            display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '700',
-                            background: rate >= 100 ? '#EAF5E9' : rate >= 50 ? '#FFF3E0' : '#FFEBEE',
-                            color: rate >= 100 ? '#3D8B37' : rate >= 50 ? '#E65100' : '#C62828',
-                          }}>{rate}%</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: '#EBF4FF', fontWeight: '800' }}>
-                    <td style={{ padding: '10px 14px', fontSize: '13px', color: '#2C5AA0' }}>합계</td>
-                    <td className="text-right" style={{ padding: '10px 14px', color: '#2C5AA0' }}>{monthSummary.reduce((s, m) => s + m.count, 0)}건</td>
-                    <td className="text-right" style={{ padding: '10px 14px', color: '#1A202C' }}>{formatCurrency(monthSummary.reduce((s, m) => s + m.total, 0))}</td>
-                    <td className="text-right" style={{ padding: '10px 14px', color: '#3D8B37' }}>{formatCurrency(monthSummary.reduce((s, m) => s + m.paid, 0))}</td>
-                    <td className="text-right" style={{ padding: '10px 14px', color: '#C62828' }}>{formatCurrency(monthSummary.reduce((s, m) => s + (m.total - m.paid), 0))}</td>
                     <td></td>
                   </tr>
                 </tfoot>
