@@ -216,27 +216,45 @@ export default function SalesPurchase() {
   const [detailOrder, setDetailOrder] = useState(null);
   const [paymentTarget, setPaymentTarget] = useState(null);
 
+  const now = new Date();
+  const [monthFilter, setMonthFilter] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+
   const isSales = tab === 'sales';
   const orders = isSales ? salesOrders : purchaseOrders;
+
+  const availableMonths = useMemo(() => {
+    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
+    const set = new Set();
+    orders.forEach((o) => {
+      const d = new Date(o[dateKey]);
+      if (!isNaN(d)) set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    });
+    return ['전체', ...[...set].sort((a, b) => b.localeCompare(a))];
+  }, [orders, isSales]);
 
   const filtered = useMemo(() => {
     const nameKey = isSales ? 'customerName' : 'supplierName';
     const numKey = isSales ? 'orderNumber' : 'purchaseNumber';
+    const dateKey = isSales ? 'orderDate' : 'purchaseDate';
     return orders.filter((o) => {
       const matchSearch = (o[nameKey] || '').toLowerCase().includes(search.toLowerCase()) || (o[numKey] || '').toLowerCase().includes(search.toLowerCase());
       const matchPay = payFilter === '전체' || o.paymentStatus === payFilter;
-      return matchSearch && matchPay;
+      const matchMonth = monthFilter === '전체' || (() => {
+        const d = new Date(o[dateKey]);
+        return !isNaN(d) && `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+      })();
+      return matchSearch && matchPay && matchMonth;
     }).sort((a, b) => new Date(b[isSales ? 'orderDate' : 'purchaseDate']) - new Date(a[isSales ? 'orderDate' : 'purchaseDate']));
-  }, [orders, search, payFilter, isSales]);
+  }, [orders, search, payFilter, monthFilter, isSales]);
 
   const stats = useMemo(() => {
-    const total = orders.reduce((s, o) => s + o.totalAmount, 0);
-    const paid = orders.reduce((s, o) => s + o.paidAmount, 0);
+    const total = filtered.reduce((s, o) => s + o.totalAmount, 0);
+    const paid = filtered.reduce((s, o) => s + o.paidAmount, 0);
     const unpaid = total - paid;
-    const paidCount = orders.filter((o) => o.paymentStatus === 'paid').length;
-    const pendingCount = orders.filter((o) => o.paymentStatus === 'pending').length;
-    return { total, paid, unpaid, paidCount, pendingCount, count: orders.length };
-  }, [orders]);
+    const paidCount = filtered.filter((o) => o.paymentStatus === 'paid').length;
+    const pendingCount = filtered.filter((o) => o.paymentStatus === 'pending').length;
+    return { total, paid, unpaid, paidCount, pendingCount, count: filtered.length };
+  }, [filtered]);
 
   const partySummary = useMemo(() => {
     const map = {};
@@ -376,11 +394,28 @@ export default function SalesPurchase() {
       {/* 탭 */}
       <div style={{ display: 'flex', gap: '0', background: '#fff', borderRadius: '10px', padding: '6px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '20px', width: 'fit-content' }}>
         {[{ v: 'sales', l: '매출 (판매)', icon: <FaShoppingCart size={13} /> }, { v: 'purchase', l: '매입 (구매)', icon: <FaBoxes size={13} /> }].map(({ v, l, icon }) => (
-          <button key={v} onClick={() => { setTab(v); setSearch(''); setPayFilter('전체'); }}
+          <button key={v} onClick={() => { setTab(v); setSearch(''); setPayFilter('전체'); setMonthFilter(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`); }}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 24px', border: 'none', borderRadius: '7px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', background: tab === v ? '#2C5AA0' : 'transparent', color: tab === v ? '#fff' : '#718096', transition: 'all 0.15s' }}>
             {icon} {l}
           </button>
         ))}
+      </div>
+
+      {/* 월 선택 바 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
+        <span style={{ fontSize: '12px', color: '#718096', fontWeight: '700', whiteSpace: 'nowrap' }}>조회 월:</span>
+        {availableMonths.map((m) => {
+          const label = m === '전체' ? '전체' : (() => { const [y, mo] = m.split('-'); return `${y}년 ${parseInt(mo)}월`; })();
+          return (
+            <button key={m} onClick={() => setMonthFilter(m)}
+              style={{ padding: '5px 14px', border: '1.5px solid', borderRadius: '20px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
+                background: monthFilter === m ? '#2C5AA0' : '#fff',
+                color: monthFilter === m ? '#fff' : '#4A5568',
+                borderColor: monthFilter === m ? '#2C5AA0' : '#E2E8F0' }}>
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Stats */}
