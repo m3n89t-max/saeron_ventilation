@@ -217,6 +217,13 @@ const useAppStore = create(
         const s = get();
         return { products: s.products, transactions: s.transactions, quotes: s.quotes, salesOrders: s.salesOrders, purchaseOrders: s.purchaseOrders, expenses: s.expenses, otherIncome: s.otherIncome, customers: s.customers, suppliers: s.suppliers, exportedAt: new Date().toISOString() };
       },
+
+      resetAll: () => {
+        set({
+          products: [], transactions: [], quotes: [], salesOrders: [], purchaseOrders: [],
+          expenses: [], otherIncome: [], customers: [], suppliers: [], bankBalance: 0,
+        });
+      },
     }),
     { name: 'saeron-app-v2' }
   )
