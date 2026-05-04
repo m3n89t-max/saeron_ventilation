@@ -38,11 +38,13 @@ const useAppStore = create((set, get) => ({
   expenseCategories:     ['인건비', '임대료', '차량유지비', '광고홍보비', '통신비', '공과금', '소모품', '기타'],
   otherIncomeCategories: ['설치공사', '유지보수', '기타'],
 
-  // ── Supabase 실시간 동기화 시작 ─────────────────────
+  // ── Supabase 동기화 시작 ────────────────────────────
   initSync: async () => {
-    // 1. 초기 데이터 로드
-    const { data, error } = await supabase.from('app_data').select('*');
-    if (!error && data) {
+    // Supabase에서 전체 데이터 읽어 state에 반영
+    const loadAll = async () => {
+      const { data, error } = await supabase.from('app_data').select('*');
+      if (error) { console.error('Supabase 로드 오류:', error); return; }
+      if (!data) return;
       const update = {};
       COLLECTIONS.forEach((name) => {
         const row = data.find((r) => r.collection === name);
@@ -51,13 +53,13 @@ const useAppStore = create((set, get) => ({
       supabaseSyncing = true;
       set({ ...update, _loaded: true });
       supabaseSyncing = false;
-    } else {
-      set({ _loaded: true });
-    }
+    };
 
-    // 2. 실시간 변경 구독 (다른 PC에서 변경 시 즉시 반영)
+    await loadAll();
+
+    // 실시간 구독 (WebSocket - 즉시 반영)
     const channel = supabase
-      .channel('app_data_changes')
+      .channel('app_data_realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'app_data' },
@@ -70,9 +72,17 @@ const useAppStore = create((set, get) => ({
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Supabase Realtime]', status);
+      });
 
-    return () => supabase.removeChannel(channel);
+    // 폴링 백업 - 5초마다 강제 동기화 (실시간이 안 될 때 대비)
+    const pollTimer = setInterval(loadAll, 5000);
+
+    return () => {
+      clearInterval(pollTimer);
+      supabase.removeChannel(channel);
+    };
   },
 
   // ── 제품/재고 ──────────────────────────────────────
