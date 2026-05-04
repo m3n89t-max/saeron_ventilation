@@ -42,7 +42,7 @@ export default function Settings() {
     if (!window.confirm('⚠️ 모든 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
     if (!window.confirm('정말로 초기화하시겠습니까? 모든 데이터가 삭제됩니다.')) return;
     localStorage.removeItem('saeron-app-v2');
-    window.location.reload();
+    window.location.href = '/';
   };
 
   const dataCounts = [
