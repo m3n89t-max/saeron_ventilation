@@ -8,7 +8,7 @@ const EMPTY_PRODUCT = { name: '', category: '복합환풍기', quantity: 0, minQ
 const EMPTY_STOCK = { quantity: 1, unitPrice: 0, note: '', user: '관리자' };
 
 export default function Inventory() {
-  const { products, productCategories, addProduct, updateProduct, deleteProduct, addStockIn, addStockOut, getLowStockProducts, getTotalInventoryValue } = useAppStore();
+  const { products, productCategories, addProduct, updateProduct, deleteProduct, addStockIn, addStockOut, getLowStockProducts, getTotalInventoryValue, syncInventoryFromOrders } = useAppStore();
 
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('전체');
@@ -23,7 +23,7 @@ export default function Inventory() {
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
-      const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || (p.code || '').toLowerCase().includes(search.toLowerCase());
       const matchCat = catFilter === '전체' || p.category === catFilter;
       return matchSearch && matchCat;
     });
@@ -81,9 +81,15 @@ export default function Inventory() {
           <h2 className="page-title">재고 관리</h2>
           <p className="page-subtitle">제품 등록, 입고/출고 처리, 재고 현황 관리</p>
         </div>
-        <button className="btn-primary" onClick={openAdd}>
-          <FaPlus size={12} /> 제품 등록
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => { if (window.confirm('매입/매출 데이터를 기준으로 재고를 일괄 동기화합니다.\n기존 재고 수량이 덮어씌워집니다. 계속하시겠습니까?')) syncInventoryFromOrders(); }}
+            style={{ padding: '9px 16px', border: '1.5px solid #E65100', borderRadius: '8px', background: '#FFF3E0', color: '#E65100', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+            매입/매출 재고 동기화
+          </button>
+          <button className="btn-primary" onClick={openAdd}>
+            <FaPlus size={12} /> 제품 등록
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

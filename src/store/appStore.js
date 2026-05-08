@@ -142,7 +142,7 @@ const useAppStore = create((set, get) => ({
       let prod = get().products.find((p) => p.name.toLowerCase() === name.toLowerCase());
       if (!prod) {
         // 재고에 없는 제품이면 자동 등록
-        prod = { id: n.id + idx + 1, name, category: '기타', quantity: 0, salePrice: item.unitPrice || 0, purchasePrice: item.unitPrice || 0, minQuantity: 0, unit: '개', updatedAt: new Date().toISOString() };
+        prod = { id: n.id + idx + 1, code: `PRD-${String(n.id + idx + 1).slice(-6)}`, name, category: '기타', quantity: 0, salePrice: item.unitPrice || 0, purchasePrice: item.unitPrice || 0, minQuantity: 0, unit: '개', updatedAt: new Date().toISOString() };
         set((s) => ({ products: [...s.products, prod] }));
       }
       const tx = { id: n.id + idx + 1000, productId: prod.id, productName: prod.name, type: 'in', quantity: item.quantity, unitPrice: item.unitPrice || 0, date: new Date().toISOString(), note: '매입 자동 연동', user: o.user || '', reference: n.purchaseNumber };
@@ -208,6 +208,45 @@ const useAppStore = create((set, get) => ({
   getMonthOpExpense: (year, month) => {
     const s = new Date(year, month - 1, 1), e = new Date(year, month, 0, 23, 59, 59);
     return get().expenses.filter((e2) => { const d = new Date(e2.date); return d >= s && d <= e; }).reduce((sum, e2) => sum + e2.amount, 0);
+  },
+
+  // ── 매입/매출 → 재고 일괄 동기화 (기존 데이터 소급 적용) ──────
+  syncInventoryFromOrders: () => {
+    const { purchaseOrders, salesOrders } = get();
+    const now = Date.now();
+
+    // 제품별 순수량 계산 (매입 합계 - 매출 합계)
+    const map = {}; // key: 소문자 이름
+    purchaseOrders.forEach((o) => {
+      (o.items || []).forEach((item) => {
+        if (!item.productName?.trim() || !(item.quantity > 0)) return;
+        const key = item.productName.trim().toLowerCase();
+        if (!map[key]) map[key] = { name: item.productName.trim(), qty: 0, price: 0 };
+        map[key].qty += item.quantity;
+        map[key].price = item.unitPrice || map[key].price;
+      });
+    });
+    salesOrders.forEach((o) => {
+      (o.items || []).forEach((item) => {
+        if (!item.productName?.trim() || !(item.quantity > 0)) return;
+        const key = item.productName.trim().toLowerCase();
+        if (map[key]) map[key].qty -= item.quantity;
+      });
+    });
+
+    // 기존 products와 merge
+    const existing = get().products;
+    const updated = [...existing];
+    Object.values(map).forEach((entry, idx) => {
+      const found = updated.find((p) => p.name.toLowerCase() === entry.name.toLowerCase());
+      if (found) {
+        const i = updated.findIndex((p) => p.id === found.id);
+        updated[i] = { ...found, quantity: entry.qty, updatedAt: new Date().toISOString() };
+      } else {
+        updated.push({ id: now + idx + 9000, code: `PRD-${String(now + idx).slice(-6)}`, name: entry.name, category: '기타', quantity: entry.qty, salePrice: entry.price, purchasePrice: entry.price, minQuantity: 0, unit: '개', updatedAt: new Date().toISOString() });
+      }
+    });
+    set({ products: updated });
   },
 
   exportData: () => {
