@@ -111,6 +111,19 @@ const useAppStore = create((set, get) => ({
     const cnt = get().salesOrders.length + 1;
     const n = { ...o, id: Date.now(), orderNumber: `SO-${new Date().getFullYear()}-${String(cnt).padStart(3, '0')}`, orderDate: new Date().toISOString(), status: 'pending', paymentStatus: (o.paidAmount || 0) >= o.totalAmount ? 'paid' : (o.paidAmount || 0) > 0 ? 'partial' : 'pending' };
     set((s) => ({ salesOrders: [n, ...s.salesOrders] }));
+
+    // 재고 자동 출고 연동
+    (o.items || []).forEach((item, idx) => {
+      if (!item.productName?.trim() || !(item.quantity > 0)) return;
+      const prod = get().products.find((p) => p.name.toLowerCase() === item.productName.trim().toLowerCase());
+      if (!prod) return;
+      const tx = { id: n.id + idx + 2000, productId: prod.id, productName: prod.name, type: 'out', quantity: item.quantity, unitPrice: item.unitPrice || 0, date: new Date().toISOString(), note: '매출 자동 연동', user: o.user || '', reference: n.orderNumber };
+      set((s) => ({
+        products: s.products.map((p) => p.id === prod.id ? { ...p, quantity: p.quantity - item.quantity, updatedAt: new Date().toISOString() } : p),
+        transactions: [tx, ...s.transactions],
+      }));
+    });
+
     return n;
   },
   updateSalesOrder:  (id, upd) => set((s) => ({ salesOrders: s.salesOrders.map((o) => o.id === id ? { ...o, ...upd } : o) })),
@@ -121,6 +134,24 @@ const useAppStore = create((set, get) => ({
     const cnt = get().purchaseOrders.length + 1;
     const n = { ...o, id: Date.now(), purchaseNumber: `PO-${new Date().getFullYear()}-${String(cnt).padStart(3, '0')}`, purchaseDate: new Date().toISOString(), status: 'ordered', paymentStatus: (o.paidAmount || 0) >= o.totalAmount ? 'paid' : (o.paidAmount || 0) > 0 ? 'partial' : 'pending' };
     set((s) => ({ purchaseOrders: [n, ...s.purchaseOrders] }));
+
+    // 재고 자동 입고 연동
+    (o.items || []).forEach((item, idx) => {
+      if (!item.productName?.trim() || !(item.quantity > 0)) return;
+      const name = item.productName.trim();
+      let prod = get().products.find((p) => p.name.toLowerCase() === name.toLowerCase());
+      if (!prod) {
+        // 재고에 없는 제품이면 자동 등록
+        prod = { id: n.id + idx + 1, name, category: '기타', quantity: 0, salePrice: item.unitPrice || 0, purchasePrice: item.unitPrice || 0, minQuantity: 0, unit: '개', updatedAt: new Date().toISOString() };
+        set((s) => ({ products: [...s.products, prod] }));
+      }
+      const tx = { id: n.id + idx + 1000, productId: prod.id, productName: prod.name, type: 'in', quantity: item.quantity, unitPrice: item.unitPrice || 0, date: new Date().toISOString(), note: '매입 자동 연동', user: o.user || '', reference: n.purchaseNumber };
+      set((s) => ({
+        products: s.products.map((p) => p.id === prod.id ? { ...p, quantity: p.quantity + item.quantity, updatedAt: new Date().toISOString() } : p),
+        transactions: [tx, ...s.transactions],
+      }));
+    });
+
     return n;
   },
   updatePurchaseOrder:  (id, upd) => set((s) => ({ purchaseOrders: s.purchaseOrders.map((o) => o.id === id ? { ...o, ...upd } : o) })),
