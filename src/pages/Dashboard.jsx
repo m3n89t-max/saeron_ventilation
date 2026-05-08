@@ -4,7 +4,7 @@ import {
   FaMoneyBillWave, FaShoppingCart, FaBoxes, FaFileAlt,
   FaExclamationTriangle, FaArrowRight, FaChartLine,
   FaCreditCard, FaWarehouse, FaUniversity,
-  FaChevronLeft, FaChevronRight,
+  FaChevronLeft, FaChevronRight, FaFilter, FaClock,
 } from 'react-icons/fa';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -22,9 +22,24 @@ const Dashboard = () => {
     expenses, otherIncome, getLowStockProducts,
     getTotalInventoryValue, getTotalUnpaidReceivable, getTotalUnpaidPayable,
     getMonthSalesRevenue, getMonthPurchaseCost, getMonthOpExpense,
-    getCalculatedBankBalance,
+    getCalculatedBankBalance, filterCustomers, filterHistory,
   } = useAppStore();
   const bankBalance = getCalculatedBankBalance();
+
+  const filterAlerts = useMemo(() => {
+    const today = new Date();
+    return filterCustomers.map((c) => {
+      const hist = filterHistory.filter((h) => h.customerId === c.id).sort((a, b) => new Date(b.replaceDate) - new Date(a.replaceDate));
+      const lastDate = hist[0]?.replaceDate || c.installDate || null;
+      if (!lastDate) return { ...c, status: 'unknown', diffDays: null, nextDate: null };
+      const next = new Date(lastDate);
+      next.setMonth(next.getMonth() + (c.cycleMonths || 6));
+      const diffDays = Math.floor((next - today) / (1000 * 60 * 60 * 24));
+      const status = diffDays < 0 ? 'overdue' : diffDays <= 30 ? 'soon' : 'ok';
+      return { ...c, status, diffDays, nextDate: next };
+    }).filter((c) => c.status === 'overdue' || c.status === 'soon')
+      .sort((a, b) => (a.diffDays ?? -999) - (b.diffDays ?? -999));
+  }, [filterCustomers, filterHistory]);
 
   const now = new Date();
   const cy = now.getFullYear(), cm = now.getMonth() + 1;
@@ -431,6 +446,37 @@ const Dashboard = () => {
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '16px', fontWeight: '800', color: p.quantity === 0 ? '#C62828' : '#E65100' }}>{p.quantity}개</div>
                   <div style={{ fontSize: '11px', color: '#718096' }}>최소 {p.minQuantity}개</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 필터 교체 알림 */}
+      {filterAlerts.length > 0 && (
+        <div style={{ background: '#FFF8E1', borderRadius: '12px', padding: '16px 20px', border: '1.5px solid #FFE082' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#E65100', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaFilter /> 필터 교체 알림 ({filterAlerts.length}건)
+            </h3>
+            <Link to="/filter-maintenance" style={{ fontSize: '12px', color: '#E65100', fontWeight: '600' }}>필터 관리 →</Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
+            {filterAlerts.map((c) => (
+              <div key={c.id} style={{ background: '#fff', borderRadius: '8px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: `1.5px solid ${c.status === 'overdue' ? '#FFCDD2' : '#FFE0B2'}` }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#1A202C' }}>{c.name}</div>
+                  <div style={{ fontSize: '11px', color: '#718096', marginTop: '2px' }}>{c.phone || '-'} · {c.filterModel || '필터모델 미등록'}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: c.status === 'overdue' ? '#C62828' : '#E65100', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <FaClock size={11} />
+                    {c.status === 'overdue' ? `${Math.abs(c.diffDays)}일 초과` : `D-${c.diffDays}`}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#718096', marginTop: '2px' }}>
+                    {c.nextDate ? `예정: ${c.nextDate.getFullYear()}.${String(c.nextDate.getMonth()+1).padStart(2,'0')}.${String(c.nextDate.getDate()).padStart(2,'0')}` : ''}
+                  </div>
                 </div>
               </div>
             ))}

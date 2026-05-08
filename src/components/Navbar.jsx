@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import useAppStore from '../store/appStore';
 import {
   FaTachometerAlt, FaBoxes, FaFileAlt, FaExchangeAlt,
   FaWallet, FaHistory, FaChartPie, FaCog, FaBars, FaTimes, FaFilter
@@ -20,6 +21,20 @@ const NAV_ITEMS = [
 const Navbar = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { filterCustomers, filterHistory } = useAppStore();
+
+  const filterAlertCount = useMemo(() => {
+    const today = new Date();
+    return filterCustomers.filter((c) => {
+      const hist = filterHistory.filter((h) => h.customerId === c.id).sort((a, b) => new Date(b.replaceDate) - new Date(a.replaceDate));
+      const lastDate = hist[0]?.replaceDate || c.installDate || null;
+      if (!lastDate) return false;
+      const next = new Date(lastDate);
+      next.setMonth(next.getMonth() + (c.cycleMonths || 6));
+      const diffDays = Math.floor((next - today) / (1000 * 60 * 60 * 24));
+      return diffDays <= 30;
+    }).length;
+  }, [filterCustomers, filterHistory]);
 
   const isActive = (path) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
@@ -48,6 +63,11 @@ const Navbar = () => {
               >
                 <Icon size={15} />
                 <span>{label}</span>
+                {path === '/filter-maintenance' && filterAlertCount > 0 && (
+                  <span style={{ background: '#C62828', color: '#fff', borderRadius: '10px', fontSize: '10px', fontWeight: '800', padding: '1px 6px', lineHeight: '16px' }}>
+                    {filterAlertCount}
+                  </span>
+                )}
               </Link>
             ))}
           </div>
