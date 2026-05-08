@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 const COLLECTIONS = [
   'products', 'transactions', 'quotes', 'salesOrders',
   'purchaseOrders', 'expenses', 'otherIncome', 'customers', 'suppliers',
+  'filterCustomers', 'filterHistory',
 ];
 
 // Supabase에서 받은 업데이트인지 표시 (무한루프 방지)
@@ -31,6 +32,8 @@ const useAppStore = create((set, get) => ({
   otherIncome: [],
   customers: [],
   suppliers: [],
+  filterCustomers: [],
+  filterHistory: [],
 
   // ── 메타 ────────────────────────────────────────────
   _loaded: false,
@@ -181,6 +184,26 @@ const useAppStore = create((set, get) => ({
   },
   deleteSupplier: (id) => set((s) => ({ suppliers: s.suppliers.filter((s2) => s2.id !== id) })),
 
+  // ── 필터 고객 관리 ─────────────────────────────────
+  addFilterCustomer: (c) => {
+    const n = { ...c, id: Date.now(), registeredAt: new Date().toISOString() };
+    set((s) => ({ filterCustomers: [...s.filterCustomers, n] }));
+    return n;
+  },
+  updateFilterCustomer: (id, upd) => set((s) => ({ filterCustomers: s.filterCustomers.map((c) => c.id === id ? { ...c, ...upd } : c) })),
+  deleteFilterCustomer: (id) => set((s) => ({
+    filterCustomers: s.filterCustomers.filter((c) => c.id !== id),
+    filterHistory: s.filterHistory.filter((h) => h.customerId !== id),
+  })),
+
+  addFilterHistory: (h) => {
+    const n = { ...h, id: Date.now() };
+    set((s) => ({ filterHistory: [n, ...s.filterHistory] }));
+    return n;
+  },
+  updateFilterHistory: (id, upd) => set((s) => ({ filterHistory: s.filterHistory.map((h) => h.id === id ? { ...h, ...upd } : h) })),
+  deleteFilterHistory: (id) => set((s) => ({ filterHistory: s.filterHistory.filter((h) => h.id !== id) })),
+
   // ── 계산 헬퍼 ─────────────────────────────────────
   getLowStockProducts:      () => get().products.filter((p) => p.quantity <= p.minQuantity),
   getTotalInventoryValue:   () => get().products.reduce((s, p) => s + p.quantity * p.salePrice, 0),
@@ -255,7 +278,7 @@ const useAppStore = create((set, get) => ({
   },
 
   resetAll: () => {
-    set({ products: [], transactions: [], quotes: [], salesOrders: [], purchaseOrders: [], expenses: [], otherIncome: [], customers: [], suppliers: [] });
+    set({ products: [], transactions: [], quotes: [], salesOrders: [], purchaseOrders: [], expenses: [], otherIncome: [], customers: [], suppliers: [], filterCustomers: [], filterHistory: [] });
   },
 }));
 

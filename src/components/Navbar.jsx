@@ -2,18 +2,19 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   FaTachometerAlt, FaBoxes, FaFileAlt, FaExchangeAlt,
-  FaWallet, FaHistory, FaChartPie, FaCog, FaBars, FaTimes
+  FaWallet, FaHistory, FaChartPie, FaCog, FaBars, FaTimes, FaFilter
 } from 'react-icons/fa';
 
 const NAV_ITEMS = [
-  { path: '/',               icon: FaTachometerAlt, label: '대시보드' },
-  { path: '/inventory',      icon: FaBoxes,         label: '재고관리' },
-  { path: '/quotes',         icon: FaFileAlt,       label: '견적현황' },
-  { path: '/sales-purchase', icon: FaExchangeAlt,   label: '매입매출' },
-  { path: '/finance',        icon: FaWallet,        label: '수입지출' },
-  { path: '/transactions',   icon: FaHistory,       label: '입출고내역' },
-  { path: '/reports',        icon: FaChartPie,      label: '리포트' },
-  { path: '/settings',       icon: FaCog,           label: '설정' },
+  { path: '/',                   icon: FaTachometerAlt, label: '대시보드' },
+  { path: '/inventory',          icon: FaBoxes,         label: '재고관리' },
+  { path: '/quotes',             icon: FaFileAlt,       label: '견적현황' },
+  { path: '/sales-purchase',     icon: FaExchangeAlt,   label: '매입매출' },
+  { path: '/finance',            icon: FaWallet,        label: '수입지출' },
+  { path: '/transactions',       icon: FaHistory,       label: '입출고내역' },
+  { path: '/filter-maintenance', icon: FaFilter,        label: '필터관리' },
+  { path: '/reports',            icon: FaChartPie,      label: '리포트' },
+  { path: '/settings',           icon: FaCog,           label: '설정' },
 ];
 
 const Navbar = () => {

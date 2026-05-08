@@ -9,6 +9,7 @@ import Finance from './pages/Finance';
 import Transactions from './pages/Transactions';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import FilterMaintenance from './pages/FilterMaintenance';
 import useAppStore from './store/appStore';
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
             <Route path="/finance" element={<Finance />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/filter-maintenance" element={<FilterMaintenance />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
