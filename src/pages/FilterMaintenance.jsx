@@ -46,6 +46,9 @@ export default function FilterMaintenance() {
   const [editCustomer, setEditCustomer] = useState(null);
   const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER);
 
+  const [detailTarget, setDetailTarget] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
   const [historyTarget, setHistoryTarget] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -79,6 +82,8 @@ export default function FilterMaintenance() {
     soon:    enriched.filter((c) => c.status === 'soon').length,
     ok:      enriched.filter((c) => c.status === 'ok').length,
   }), [enriched]);
+
+  const openDetail = (c) => { setDetailTarget(enriched.find((e) => e.id === c.id) || c); setShowDetailModal(true); };
 
   const openAddCustomer = () => { setEditCustomer(null); setCustomerForm(EMPTY_CUSTOMER); setShowCustomerModal(true); };
   const openEditCustomer = (c) => {
@@ -214,7 +219,7 @@ export default function FilterMaintenance() {
                 const diffDays = c.nextDate ? Math.floor((c.nextDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
                 return (
                   <tr key={c.id}>
-                    <td style={{ fontWeight: '700', fontSize: '13px' }}>{c.name}</td>
+                    <td style={{ fontWeight: '700', fontSize: '13px', cursor: 'pointer', color: '#2C5AA0', textDecoration: 'underline' }} onClick={() => openDetail(c)}>{c.name}</td>
                     <td style={{ fontSize: '12px', color: '#4A5568' }}>{c.phone || '-'}</td>
                     <td style={{ fontSize: '12px', color: '#718096', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address || '-'}</td>
                     <td style={{ fontSize: '12px', color: '#4A5568' }}>{c.filterModel || '-'}</td>
@@ -255,6 +260,108 @@ export default function FilterMaintenance() {
           </table>
         </div>
       </div>
+
+      {/* 고객 상세 보기 모달 */}
+      {showDetailModal && detailTarget && (() => {
+        const dc = detailTarget;
+        const st = STATUS_MAP[dc.status];
+        const nextStr = dc.nextDate ? formatKo(dc.nextDate.toISOString()) : '-';
+        const diffDays = dc.nextDate ? Math.floor((dc.nextDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
+        const recentHist = (dc.hist || []).slice(0, 3);
+        return (
+          <div className="modal-overlay">
+            <div className="modal-box" style={{ maxWidth: '580px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0' }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '6px' }}>{dc.name}</h3>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', background: st.bg, color: st.color }}>
+                    {st.icon} {st.label}
+                  </span>
+                </div>
+                <button onClick={() => setShowDetailModal(false)} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#718096', cursor: 'pointer' }}><FaTimes /></button>
+              </div>
+
+              {/* 기본 정보 */}
+              <div style={{ background: '#F7FAFC', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#718096', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>기본 정보</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {[
+                    { label: '연락처', value: dc.phone || '-' },
+                    { label: '담당자', value: dc.contact || '-' },
+                    { label: '주소', value: dc.address || '-', full: true },
+                    { label: '비고', value: dc.notes || '-', full: true },
+                  ].map(({ label, value, full }) => (
+                    <div key={label} style={full ? { gridColumn: '1 / -1' } : {}}>
+                      <div style={{ fontSize: '11px', color: '#A0AEC0', fontWeight: '600', marginBottom: '2px' }}>{label}</div>
+                      <div style={{ fontSize: '13px', color: '#2D3748', fontWeight: '500' }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 필터 정보 */}
+              <div style={{ background: '#EBF4FF', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#2C5AA0', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>필터 정보</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {[
+                    { label: '필터 모델', value: dc.filterModel || '-' },
+                    { label: '교체주기', value: `${dc.cycleMonths || 6}개월` },
+                    { label: '설치일', value: formatKo(dc.installDate) },
+                    { label: '최근 교체일', value: formatKo(dc.lastDate) },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <div style={{ fontSize: '11px', color: '#7BAFD4', fontWeight: '600', marginBottom: '2px' }}>{label}</div>
+                      <div style={{ fontSize: '13px', color: '#2D3748', fontWeight: '500' }}>{value}</div>
+                    </div>
+                  ))}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ fontSize: '11px', color: '#7BAFD4', fontWeight: '600', marginBottom: '2px' }}>다음 교체 예정</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: st.color }}>
+                      {nextStr}
+                      {diffDays !== null && (
+                        <span style={{ fontSize: '12px', marginLeft: '8px' }}>
+                          {diffDays < 0 ? `(${Math.abs(diffDays)}일 초과)` : `(D-${diffDays})`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 최근 교체 이력 */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#718096', marginBottom: '10px' }}>최근 교체 이력</div>
+                {recentHist.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '16px', color: '#A0AEC0', fontSize: '12px', background: '#F7FAFC', borderRadius: '8px' }}>교체 이력이 없습니다.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {recentHist.map((h) => (
+                      <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#F7FAFC', borderRadius: '8px', borderLeft: '3px solid #3D8B37' }}>
+                        <div>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#2D3748' }}>{formatKo(h.replaceDate)}</span>
+                          {h.filterType && <span style={{ fontSize: '12px', color: '#718096', marginLeft: '8px' }}>{h.filterType}</span>}
+                          {h.technician && <span style={{ fontSize: '12px', color: '#A0AEC0', marginLeft: '6px' }}>· {h.technician}</span>}
+                        </div>
+                        {h.cost ? <span style={{ fontSize: '12px', fontWeight: '700', color: '#3D8B37' }}>₩{Number(h.cost).toLocaleString()}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button onClick={() => { setShowDetailModal(false); openHistory(dc); }} style={{ padding: '9px 16px', background: '#EBF4FF', color: '#2C5AA0', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <FaHistory size={11} /> 전체 이력
+                </button>
+                <button onClick={() => { setShowDetailModal(false); openEditCustomer(dc); }} style={{ padding: '9px 16px', background: '#F7FAFC', color: '#4A5568', border: '1.5px solid #E2E8F0', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <FaEdit size={11} /> 수정
+                </button>
+                <button onClick={() => setShowDetailModal(false)} style={{ padding: '9px 18px', background: '#2C5AA0', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>닫기</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 고객 등록/수정 모달 */}
       {showCustomerModal && (
